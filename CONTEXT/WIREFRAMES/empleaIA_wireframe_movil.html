@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>EmpleaIA — Interfaz móvil</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#1558d6;--navy:#10265f;--cyan:#08c8df;--green:#18a477;
+  --purple:#6546c7;--bg:#f5f7fb;--text:#14213d;--muted:#758095;
+  --line:#e7ebf2;--white:#fff;
+}
+body{
+  min-height:100vh;background:#dfe6ef;
+  font-family:Inter,"Segoe UI",Arial,sans-serif;color:var(--text);
+  display:flex;justify-content:center;
+}
+.phone{
+  width:390px;min-height:844px;background:var(--bg);
+  position:relative;overflow:hidden;
+  box-shadow:0 0 35px rgba(16,38,95,.18);
+}
+.status{
+  height:29px;background:white;padding:7px 17px 0;
+  display:flex;justify-content:space-between;font-size:11px;font-weight:700;
+}
+.topbar{
+  background:white;padding:13px 18px 15px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--line);
+}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;color:var(--navy);font-size:19px}
+.logo{
+  width:34px;height:34px;border-radius:10px;
+  display:grid;place-items:center;color:white;font-weight:900;
+  background:linear-gradient(135deg,var(--cyan),var(--blue));
+}
+.avatar{
+  width:35px;height:35px;border-radius:50%;display:grid;place-items:center;
+  background:#e7efff;color:var(--blue);font-weight:800;
+}
+.content{padding:20px 17px 92px}
+.screen{display:none}.screen.active{display:block}
+.greeting{margin-bottom:17px}
+.greeting small{font-size:12px;color:var(--muted)}
+.greeting h1{font-size:24px;line-height:1.15;color:var(--navy);margin-top:4px}
+.search{
+  height:47px;background:white;border:1px solid var(--line);border-radius:13px;
+  display:flex;align-items:center;padding:0 7px 0 13px;margin-bottom:22px;
+}
+.search input{border:0;outline:0;flex:1;font-size:13px;color:var(--text)}
+.search button{
+  border:0;width:37px;height:35px;border-radius:10px;background:var(--blue);
+  color:white;font-size:17px;cursor:pointer;
+}
+.section-head{display:flex;justify-content:space-between;align-items:center;margin:18px 0 11px}
+.section-head h2{font-size:17px;color:var(--navy)}
+.section-head button{border:0;background:none;color:var(--blue);font-size:12px;cursor:pointer}
+.jobs{display:grid;gap:12px}
+.job{
+  background:white;border:1px solid var(--line);border-radius:16px;padding:15px;
+  box-shadow:0 4px 15px rgba(20,40,80,.04)
+}
+.recommended{
+  display:inline-block;background:#e8f8ef;color:#15804d;
+  border-radius:20px;padding:5px 8px;font-size:10px;font-weight:700;margin-bottom:11px
+}
+.job-head{display:flex;gap:11px}
+.company-logo{
+  width:43px;height:43px;border-radius:11px;background:#edf3ff;
+  color:var(--blue);display:grid;place-items:center;font-weight:800;font-size:12px;flex:none
+}
+.job h3{font-size:15px;margin:1px 0 4px}
+.company{font-size:11px;color:var(--muted)}
+.meta{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+.tag{font-size:10px;padding:5px 7px;border-radius:7px;background:#f1f4f8;color:#596579}
+.tag.blue{background:#eaf1ff;color:#245bc8}.tag.green{background:#e8f8ef;color:#16804c}
+.job-foot{border-top:1px solid #edf0f5;padding-top:11px;display:flex;justify-content:space-between;align-items:center}
+.time{font-size:10px;color:#9099a8}
+.apply{
+  border:0;background:var(--blue);color:white;border-radius:8px;
+  padding:8px 11px;font-size:10px;font-weight:700;cursor:pointer
+}
+.ai-banner{
+  margin-top:18px;border-radius:16px;padding:16px;color:white;
+  background:linear-gradient(135deg,#102d72,#1667dc);
+  position:relative;overflow:hidden
+}
+.ai-banner:after{
+  content:"";position:absolute;width:110px;height:110px;border:18px solid rgba(8,200,223,.18);
+  border-radius:50%;right:-30px;top:-40px
+}
+.ai-banner h3{font-size:14px;margin-bottom:5px;position:relative;z-index:1}
+.ai-banner p{font-size:11px;line-height:1.45;color:#d9e6ff;max-width:265px;position:relative;z-index:1}
+.ai-pill{display:inline-block;background:rgba(255,255,255,.14);padding:5px 8px;border-radius:20px;font-size:9px;margin-bottom:8px}
+
+.features{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.feature{background:white;border:1px solid var(--line);border-radius:13px;padding:14px}
+.icon{font-size:19px;margin-bottom:8px}.feature h3{font-size:12px;margin-bottom:5px}
+.feature p{font-size:10px;line-height:1.45;color:var(--muted)}
+
+.detail{background:white;border:1px solid var(--line);border-radius:16px;padding:18px}
+.detail h2{font-size:18px;color:var(--navy);margin-bottom:8px}
+.detail p{font-size:12px;color:var(--muted);line-height:1.6;margin:8px 0}
+.profile-row{display:flex;align-items:center;gap:12px;padding-bottom:15px;border-bottom:1px solid var(--line)}
+.big-avatar{width:55px;height:55px;border-radius:50%;display:grid;place-items:center;background:#dfeaff;color:var(--blue);font-size:20px;font-weight:800}
+.skill-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.skill{background:#edf3ff;color:#245bc8;padding:6px 8px;border-radius:8px;font-size:10px}
+
+.bottom{
+  position:absolute;left:0;right:0;bottom:0;height:76px;background:white;
+  border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);
+  padding:7px 7px 9px;z-index:10
+}
+.nav-btn{
+  border:0;background:none;color:#8791a3;font-size:10px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px
+}
+.nav-icon{font-size:19px;line-height:1}.nav-btn.active{color:var(--blue);font-weight:700}
+.nav-btn.active .nav-icon{transform:scale(1.08)}
+
+.toast{
+  position:absolute;left:18px;right:18px;bottom:88px;background:#142a62;color:white;
+  border-radius:12px;padding:12px;font-size:11px;display:none;z-index:20;
+  box-shadow:0 8px 25px rgba(0,0,0,.2)
+}
+.toast.show{display:block}
+
+@media(max-width:420px){
+  .phone{width:100%;min-height:100vh;box-shadow:none}
+}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="status"><span>9:41</span><span>● ● ▰</span></div>
+
+  <header class="topbar">
+    <div class="brand"><div class="logo">E</div>EmpleaIA</div>
+    <div class="avatar">A</div>
+  </header>
+
+  <main class="content">
+
+    <section id="inicio" class="screen active">
+      <div class="greeting">
+        <small>Buenos días, Andrés 👋</small>
+        <h1>Oportunidades<br>para ti</h1>
+      </div>
+
+      <form class="search" onsubmit="buscar(event)">
+        <input id="search" placeholder="Cargo, habilidad o empresa...">
+        <button>⌕</button>
+      </form>
+
+      <div class="section-head">
+        <h2>Recomendadas para ti</h2>
+        <button onclick="show('explorar')">Ver todas →</button>
+      </div>
+      <div class="jobs" id="homeJobs"></div>
+
+      <div class="ai-banner">
+        <span class="ai-pill">✦ INTELIGENCIA ARTIFICIAL</span>
+        <h3>Recomendaciones más inteligentes</h3>
+        <p>Analizamos tu perfil y las ofertas para encontrar coincidencias semánticas, no solo palabras clave.</p>
+      </div>
+
+      <div class="section-head"><h2>Funcionalidades</h2></div>
+      <div class="features">
+        <article class="feature"><div class="icon">🔔</div><h3>Alertas</h3><p>Recibe nuevas oportunidades compatibles.</p></article>
+        <article class="feature"><div class="icon">📍</div><h3>Enfoque local</h3><p>Vacantes relevantes en Fusagasugá.</p></article>
+      </div>
+    </section>
+
+    <section id="explorar" class="screen">
+      <div class="greeting"><small>Descubre nuevas oportunidades</small><h1>Explorar empleos</h1></div>
+      <div class="search"><input placeholder="Buscar empleo..." oninput="filtrar(this.value)"><button>⌕</button></div>
+      <div class="jobs" id="allJobs"></div>
+    </section>
+
+    <section id="postulaciones" class="screen">
+      <div class="greeting"><small>Seguimiento</small><h1>Mis postulaciones</h1></div>
+      <div class="detail">
+        <div class="job-head"><div class="company-logo">TS</div><div><h3>Desarrollador Junior</h3><div class="company">TechSolutions</div></div></div>
+        <p>📍 Fusagasugá · Remoto</p>
+        <p>Estado: <span class="tag green">En revisión</span></p>
+        <p>Tu perfil fue enviado a la empresa y está siendo evaluado.</p>
+      </div>
+    </section>
+
+    <section id="perfil" class="screen">
+      <div class="greeting"><small>Personaliza tus recomendaciones</small><h1>Mi perfil</h1></div>
+      <div class="detail">
+        <div class="profile-row">
+          <div class="big-avatar">A</div>
+          <div><h3>Andrés</h3><p>Ingeniería de Sistemas</p></div>
+        </div>
+        <p><b>Habilidades</b></p>
+        <div class="skill-list">
+          <span class="skill">Java</span><span class="skill">Python</span><span class="skill">Bases de datos</span><span class="skill">Desarrollo web</span>
+        </div>
+        <p><b>Preferencias</b><br>Fusagasugá · Remoto / Híbrido · Jornada completa</p>
+        <button class="apply" onclick="notify('Wireframe: aquí se abriría la edición del perfil.')">Editar perfil</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <nav class="bottom">
+    <button class="nav-btn active" data-id="inicio" onclick="show('inicio')"><span class="nav-icon">⌂</span>Inicio</button>
+    <button class="nav-btn" data-id="explorar" onclick="show('explorar')"><span class="nav-icon">⌕</span>Explorar</button>
+    <button class="nav-btn" data-id="postulaciones" onclick="show('postulaciones')"><span class="nav-icon">✓</span>Postulaciones</button>
+    <button class="nav-btn" data-id="perfil" onclick="show('perfil')"><span class="nav-icon">◯</span>Perfil</button>
+  </nav>
+</div>
+
+<script>
+const jobs=[
+ {title:"Desarrollador Junior",company:"TechSolutions",location:"Fusagasugá",mode:"Remoto",logo:"TS",rec:true,time:"Hace 1 hora"},
+ {title:"Analista de Datos",company:"DataPro",location:"Fusagasugá",mode:"Híbrido",logo:"DP",rec:true,time:"Hace 3 horas"},
+ {title:"Practicante de Marketing",company:"Impulsa S.A.S",location:"Fusagasugá",mode:"Presencial",logo:"IS",rec:false,time:"Hace 5 horas"},
+ {title:"Soporte Técnico Junior",company:"Andes Digital",location:"Fusagasugá",mode:"Híbrido",logo:"AD",rec:false,time:"Ayer"},
+ {title:"Desarrollador Web",company:"Nexo Tecnología",location:"Bogotá / Remoto",mode:"Remoto",logo:"NT",rec:false,time:"Ayer"}
+];
+
+function card(j){
+ return `<article class="job">
+   ${j.rec?'<span class="recommended">✦ 94% compatible contigo</span>':''}
+   <div class="job-head"><div class="company-logo">${j.logo}</div><div><h3>${j.title}</h3><div class="company">${j.company}</div></div></div>
+   <div class="meta"><span class="tag">📍 ${j.location}</span><span class="tag blue">${j.mode}</span></div>
+   <div class="job-foot"><span class="time">${j.time}</span><button class="apply" onclick="notify('Vacante seleccionada · aquí se abriría el detalle')">Ver oferta</button></div>
+ </article>`;
+}
+document.getElementById("homeJobs").innerHTML=jobs.slice(0,3).map(card).join("");
+document.getElementById("allJobs").innerHTML=jobs.map(card).join("");
+
+function show(id){
+ document.querySelectorAll(".screen").forEach(x=>x.classList.remove("active"));
+ document.getElementById(id).classList.add("active");
+ document.querySelectorAll(".nav-btn").forEach(x=>x.classList.toggle("active",x.dataset.id===id));
+ window.scrollTo(0,0);
+}
+function filtrar(q){
+ q=q.toLowerCase();
+ document.getElementById("allJobs").innerHTML=jobs.filter(j=>(j.title+" "+j.company+" "+j.location+" "+j.mode).toLowerCase().includes(q)).map(card).join("") || '<p style="color:#758095;font-size:12px">No encontramos ofertas.</p>';
+}
+function buscar(e){
+ e.preventDefault();
+ show("explorar");
+ const q=document.getElementById("search").value;
+ document.querySelector("#explorar input").value=q;
+ filtrar(q);
+}
+function notify(t){
+ const x=document.getElementById("toast");x.textContent=t;x.classList.add("show");
+ setTimeout(()=>x.classList.remove("show"),2500);
+}
+</script>
+</body>
+</html>

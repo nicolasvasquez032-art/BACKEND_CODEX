@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: talentmatch
+      POSTGRES_USER: talentmatch
+      POSTGRES_PASSWORD: talentmatch
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U talentmatch -d talentmatch"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://talentmatch:talentmatch@postgres:5432/talentmatch
+      JWT_SECRET_KEY: change-me-in-development
+      ML_SERVICE_URL: http://ml_service:8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ml_service:
+        condition: service_started
+
+  ml_service:
+    build:
+      context: ./ml_service
+    environment:
+      DATABASE_URL: postgresql+asyncpg://talentmatch:talentmatch@postgres:5432/talentmatch
+      EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
+    ports:
+      - "8001:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+
