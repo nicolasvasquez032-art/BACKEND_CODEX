@@ -103,7 +103,9 @@ async def login(
     use_case = LoginUserUseCase(users, PasslibPasswordHasher(), JwtTokenService())
 
     try:
-        result = await use_case.execute(LoginUserCommand(email=request.email, password=request.password))
+        result = await use_case.execute(
+            LoginUserCommand(email=request.email, password=request.password)
+        )
     except InvalidCredentialsError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -111,4 +113,3 @@ async def login(
         ) from exc
 
     return TokenResponse(access_token=result.access_token, token_type=result.token_type)
-

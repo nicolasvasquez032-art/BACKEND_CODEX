@@ -8,5 +8,5 @@ class GenerateEmbeddingUseCase:
 
     def execute(self, text: str) -> TextEmbedding:
         normalized_text = " ".join(text.split())
-        return TextEmbedding(text=normalized_text, vector=self._embedding_model.encode(normalized_text))
-
+        vector = self._embedding_model.encode(normalized_text)
+        return TextEmbedding(text=normalized_text, vector=vector)
