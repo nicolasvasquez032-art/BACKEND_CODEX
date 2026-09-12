@@ -30,7 +30,7 @@ async def repo_with_candidate():
 
 @pytest.mark.asyncio
 async def test_upload_cv_success(repo_with_candidate):
-    repo, user, profile = await repo_with_candidate
+    repo, user, profile = repo_with_candidate
     parser = FakeCvParser(extracted_text="Experiencia: 3 años en diseño")
 
     use_case = UploadCvUseCase(repo, parser)
@@ -48,7 +48,7 @@ async def test_upload_cv_success(repo_with_candidate):
 
 @pytest.mark.asyncio
 async def test_upload_cv_not_owner_raises(repo_with_candidate):
-    repo, user, profile = await repo_with_candidate
+    repo, user, profile = repo_with_candidate
     parser = FakeCvParser(extracted_text="some text")
 
     use_case = UploadCvUseCase(repo, parser)
@@ -65,7 +65,7 @@ async def test_upload_cv_not_owner_raises(repo_with_candidate):
 
 @pytest.mark.asyncio
 async def test_upload_cv_unsupported_mime_raises(repo_with_candidate):
-    repo, user, profile = await repo_with_candidate
+    repo, user, profile = repo_with_candidate
     parser = FakeCvParser(extracted_text="some text")
 
     use_case = UploadCvUseCase(repo, parser)
@@ -82,7 +82,7 @@ async def test_upload_cv_unsupported_mime_raises(repo_with_candidate):
 
 @pytest.mark.asyncio
 async def test_upload_cv_empty_extracted_text_raises(repo_with_candidate):
-    repo, user, profile = await repo_with_candidate
+    repo, user, profile = repo_with_candidate
     parser = FakeCvParser(extracted_text="   ")  # solo espacios
 
     use_case = UploadCvUseCase(repo, parser)

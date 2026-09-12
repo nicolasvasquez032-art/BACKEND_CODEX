@@ -40,7 +40,7 @@ async def repo_with_candidate() -> tuple[FakeUserRepository, object, object]:
 
 @pytest.mark.asyncio
 async def test_update_profile_success(repo_with_candidate):
-    repo, user, profile = await repo_with_candidate
+    repo, user, profile = repo_with_candidate
     use_case = UpdateCandidateProfileUseCase(repo)
 
     updated = await use_case.execute(
@@ -62,7 +62,7 @@ async def test_update_profile_success(repo_with_candidate):
 
 @pytest.mark.asyncio
 async def test_update_profile_not_owner_raises(repo_with_candidate):
-    repo, user, profile = await repo_with_candidate
+    repo, user, profile = repo_with_candidate
     other_user_id = uuid.uuid4()
     use_case = UpdateCandidateProfileUseCase(repo)
 
@@ -99,7 +99,7 @@ async def test_update_profile_not_found_raises():
 
 @pytest.mark.asyncio
 async def test_get_profile_owner_can_view(repo_with_candidate):
-    repo, user, profile = await repo_with_candidate
+    repo, user, profile = repo_with_candidate
     use_case = GetCandidateProfileUseCase(repo)
 
     result = await use_case.execute(
@@ -114,7 +114,7 @@ async def test_get_profile_owner_can_view(repo_with_candidate):
 
 @pytest.mark.asyncio
 async def test_get_profile_another_candidate_denied(repo_with_candidate):
-    repo, user, profile = await repo_with_candidate
+    repo, user, profile = repo_with_candidate
     use_case = GetCandidateProfileUseCase(repo)
 
     with pytest.raises(PermissionDeniedError):
@@ -129,7 +129,7 @@ async def test_get_profile_another_candidate_denied(repo_with_candidate):
 
 @pytest.mark.asyncio
 async def test_get_profile_company_can_view_any(repo_with_candidate):
-    repo, user, profile = await repo_with_candidate
+    repo, user, profile = repo_with_candidate
     use_case = GetCandidateProfileUseCase(repo)
 
     result = await use_case.execute(
