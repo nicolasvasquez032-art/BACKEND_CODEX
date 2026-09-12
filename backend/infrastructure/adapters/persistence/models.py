@@ -1,11 +1,23 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from domain.entities.postulacion import PostulacionEstado
 from domain.entities.user import UserRole
+from domain.entities.vacante import VacanteEstado
 from infrastructure.adapters.persistence.database import Base
 
 
@@ -41,3 +53,79 @@ class CandidateProfileModel(Base):
 
     user: Mapped[UserModel] = relationship(back_populates="candidate_profile")
 
+
+class PasswordResetTokenModel(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False, index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+    user: Mapped[UserModel] = relationship()
+
+
+class VacanteModel(Base):
+    __tablename__ = "vacantes"
+
+    id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    empresa_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False, index=True
+    )
+    titulo: Mapped[str] = mapped_column(String(200), nullable=False)
+    descripcion: Mapped[str] = mapped_column(Text, nullable=False)
+    requisitos: Mapped[list[str]] = mapped_column(ARRAY(String(100)), nullable=False, default=list)
+    ubicacion: Mapped[str] = mapped_column(String(180), nullable=False, index=True)
+    estado: Mapped[VacanteEstado] = mapped_column(
+        Enum(VacanteEstado, name="vacante_estado"),
+        nullable=False,
+        default=VacanteEstado.ACTIVA,
+    )
+    categoria: Mapped[str | None] = mapped_column(String(100), index=True)
+    salario_min: Mapped[float | None] = mapped_column(Float)
+    salario_max: Mapped[float | None] = mapped_column(Float)
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    # embedding: vector(384) — se agrega en Sprint 3 con pgvector
+
+    empresa: Mapped[UserModel] = relationship()
+    postulaciones: Mapped[list["PostulacionModel"]] = relationship(
+        back_populates="vacante", cascade="all, delete-orphan"
+    )
+
+
+class PostulacionModel(Base):
+    __tablename__ = "postulaciones"
+    __table_args__ = (
+        UniqueConstraint("candidato_id", "vacante_id", name="uq_candidato_vacante"),
+    )
+
+    id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    candidato_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("perfiles_candidato.id"),
+        nullable=False,
+        index=True,
+    )
+    vacante_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("vacantes.id"), nullable=False, index=True
+    )
+    estado: Mapped[PostulacionEstado] = mapped_column(
+        Enum(PostulacionEstado, name="postulacion_estado"),
+        nullable=False,
+        default=PostulacionEstado.POSTULADO,
+    )
+    score_match: Mapped[float | None] = mapped_column(Float)
+    fecha: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+    vacante: Mapped[VacanteModel] = relationship(back_populates="postulaciones")
+    candidato: Mapped[CandidateProfileModel] = relationship()

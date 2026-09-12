@@ -13,3 +13,35 @@ class InvalidCredentialsError(DomainError):
 class PermissionDeniedError(DomainError):
     pass
 
+
+class UserNotFoundError(DomainError):
+    pass
+
+
+class ProfileNotFoundError(DomainError):
+    pass
+
+
+class CVProcessingError(DomainError):
+    pass
+
+
+class InvalidResetTokenError(DomainError):
+    pass
+
+
+class VacanteNotFoundError(DomainError):
+    pass
+
+
+class PostulacionNotFoundError(DomainError):
+    pass
+
+
+class DuplicatePostulacionError(DomainError):
+    pass
+
+
+class InvalidEstadoTransitionError(DomainError):
+    pass
+

@@ -2,13 +2,26 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from application.use_cases.confirm_password_reset import (
+    ConfirmPasswordResetCommand,
+    ConfirmPasswordResetUseCase,
+)
 from application.use_cases.login_user import LoginUserCommand, LoginUserUseCase
 from application.use_cases.register_candidate import (
     RegisterCandidateCommand,
     RegisterCandidateUseCase,
 )
 from application.use_cases.register_company import RegisterCompanyCommand, RegisterCompanyUseCase
-from domain.exceptions import EmailAlreadyRegisteredError, InvalidCredentialsError
+from application.use_cases.request_password_reset import (
+    RequestPasswordResetCommand,
+    RequestPasswordResetUseCase,
+)
+from domain.exceptions import (
+    EmailAlreadyRegisteredError,
+    InvalidCredentialsError,
+    InvalidResetTokenError,
+)
+from infrastructure.adapters.email.smtp_email_service import SmtpEmailService
 from infrastructure.adapters.persistence.database import get_session
 from infrastructure.adapters.persistence.user_repository import SqlAlchemyUserRepository
 from infrastructure.adapters.security import JwtTokenService, PasslibPasswordHasher
@@ -16,10 +29,13 @@ from infrastructure.api.schemas.auth import (
     CandidateRegisterRequest,
     CandidateRegisterResponse,
     CompanyRegisterRequest,
+    ConfirmPasswordResetRequest,
     LoginRequest,
+    RequestPasswordResetRequest,
     TokenResponse,
     UserResponse,
 )
+from infrastructure.config import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -113,3 +129,51 @@ async def login(
         ) from exc
 
     return TokenResponse(access_token=result.access_token, token_type=result.token_type)
+
+
+@router.post("/recuperar-password", status_code=status.HTTP_202_ACCEPTED)
+async def request_password_reset(
+    request: RequestPasswordResetRequest,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Solicita el envío de un enlace de recuperación de contraseña por correo.
+
+    Siempre responde 202 para no revelar si el email existe en el sistema.
+    """
+    users = SqlAlchemyUserRepository(session)
+    use_case = RequestPasswordResetUseCase(users, SmtpEmailService())
+    await use_case.execute(
+        RequestPasswordResetCommand(
+            email=request.email,
+            frontend_url=settings.frontend_url,
+        )
+    )
+    await session.commit()
+    return {"detail": "Si el correo está registrado, recibirás un enlace de recuperación"}
+
+
+@router.post("/confirmar-reset", status_code=status.HTTP_200_OK)
+async def confirm_password_reset(
+    request: ConfirmPasswordResetRequest,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Confirma el reset de contraseña usando el token recibido por correo."""
+    users = SqlAlchemyUserRepository(session)
+    use_case = ConfirmPasswordResetUseCase(users, PasslibPasswordHasher())
+
+    try:
+        await use_case.execute(
+            ConfirmPasswordResetCommand(
+                raw_token=request.token,
+                new_password=request.new_password,
+            )
+        )
+        await session.commit()
+    except InvalidResetTokenError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token inválido o expirado",
+        ) from exc
+
+    return {"detail": "Contraseña actualizada exitosamente"}

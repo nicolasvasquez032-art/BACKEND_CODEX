@@ -47,3 +47,12 @@ class CandidateRegisterResponse(BaseModel):
     location: str | None
     education: str | None
 
+
+class RequestPasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class ConfirmPasswordResetRequest(BaseModel):
+    token: str = Field(min_length=10, max_length=200)
+    new_password: str = Field(min_length=8, max_length=128)
+
