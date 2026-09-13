@@ -8,6 +8,7 @@ class VacanteEstado(StrEnum):
     ACTIVA = "activa"
     PAUSADA = "pausada"
     CERRADA = "cerrada"
+    BLOQUEADA = "bloqueada"
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,8 @@ class Vacante:
     salario_min: float | None = None
     salario_max: float | None = None
     categoria: str | None = None
+    latitud: float | None = None
+    longitud: float | None = None
     # El embedding se rellena en Sprint 3; None hasta entonces
     embedding: list[float] | None = field(default=None, compare=False, hash=False)
 

@@ -12,7 +12,7 @@ from application.use_cases.update_candidate_profile import (
     UpdateCandidateProfileUseCase,
 )
 from domain.exceptions import PermissionDeniedError, ProfileNotFoundError
-from tests.fakes import FakePasswordHasher, FakeUserRepository
+from tests.fakes import FakeMlService, FakePasswordHasher, FakeUserRepository
 
 
 @pytest.fixture()
@@ -41,7 +41,7 @@ async def repo_with_candidate() -> tuple[FakeUserRepository, object, object]:
 @pytest.mark.asyncio
 async def test_update_profile_success(repo_with_candidate):
     repo, user, profile = repo_with_candidate
-    use_case = UpdateCandidateProfileUseCase(repo)
+    use_case = UpdateCandidateProfileUseCase(repo, FakeMlService())
 
     updated = await use_case.execute(
         UpdateCandidateProfileCommand(
@@ -64,7 +64,7 @@ async def test_update_profile_success(repo_with_candidate):
 async def test_update_profile_not_owner_raises(repo_with_candidate):
     repo, user, profile = repo_with_candidate
     other_user_id = uuid.uuid4()
-    use_case = UpdateCandidateProfileUseCase(repo)
+    use_case = UpdateCandidateProfileUseCase(repo, FakeMlService())
 
     with pytest.raises(PermissionDeniedError):
         await use_case.execute(
@@ -81,7 +81,7 @@ async def test_update_profile_not_owner_raises(repo_with_candidate):
 @pytest.mark.asyncio
 async def test_update_profile_not_found_raises():
     repo = FakeUserRepository()
-    use_case = UpdateCandidateProfileUseCase(repo)
+    use_case = UpdateCandidateProfileUseCase(repo, FakeMlService())
 
     with pytest.raises(ProfileNotFoundError):
         await use_case.execute(

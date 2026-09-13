@@ -35,7 +35,7 @@ from domain.exceptions import (
     PermissionDeniedError,
     VacanteNotFoundError,
 )
-from tests.fakes import FakePostulacionRepository, FakeVacanteRepository
+from tests.fakes import FakePostulacionRepository, FakeVacanteRepository, FakeMlService, FakeNotificacionRepository, FakePushNotificationPort
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -77,7 +77,7 @@ async def _crear_vacante_activa(repo: FakeVacanteRepository, empresa_id: uuid.UU
 
 @pytest.mark.asyncio
 async def test_publicar_vacante_success(vacantes_repo, empresa_id):
-    use_case = PublicarVacanteUseCase(vacantes_repo)
+    use_case = PublicarVacanteUseCase(vacantes_repo, FakeMlService(), FakeNotificacionRepository(), FakePushNotificationPort())
     vacante = await use_case.execute(
         PublicarVacanteCommand(
             empresa_id=empresa_id,
@@ -126,7 +126,7 @@ async def test_listar_vacantes_excluye_cerradas(vacantes_repo, empresa_id):
 async def test_actualizar_vacante_success(vacantes_repo, empresa_id):
     vacante = await _crear_vacante_activa(vacantes_repo, empresa_id)
 
-    use_case = ActualizarVacanteUseCase(vacantes_repo)
+    use_case = ActualizarVacanteUseCase(vacantes_repo, FakeMlService())
     updated = await use_case.execute(
         ActualizarVacanteCommand(
             vacante_id=vacante.id,
@@ -145,7 +145,7 @@ async def test_actualizar_vacante_otra_empresa_raises(vacantes_repo, empresa_id)
     vacante = await _crear_vacante_activa(vacantes_repo, empresa_id)
     otra_empresa = uuid.uuid4()
 
-    use_case = ActualizarVacanteUseCase(vacantes_repo)
+    use_case = ActualizarVacanteUseCase(vacantes_repo, FakeMlService())
     with pytest.raises(PermissionDeniedError):
         await use_case.execute(
             ActualizarVacanteCommand(

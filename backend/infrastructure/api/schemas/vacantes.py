@@ -14,6 +14,8 @@ class PublicarVacanteRequest(BaseModel):
     categoria: str | None = Field(default=None, max_length=100)
     salario_min: float | None = Field(default=None, ge=0)
     salario_max: float | None = Field(default=None, ge=0)
+    latitud: float | None = None
+    longitud: float | None = None
 
 
 class ActualizarVacanteRequest(BaseModel):
@@ -24,6 +26,8 @@ class ActualizarVacanteRequest(BaseModel):
     categoria: str | None = Field(default=None, max_length=100)
     salario_min: float | None = Field(default=None, ge=0)
     salario_max: float | None = Field(default=None, ge=0)
+    latitud: float | None = None
+    longitud: float | None = None
 
 
 class CambiarEstadoVacanteRequest(BaseModel):
@@ -41,4 +45,6 @@ class VacanteResponse(BaseModel):
     categoria: str | None
     salario_min: float | None
     salario_max: float | None
+    latitud: float | None = None
+    longitud: float | None = None
     creado_en: datetime

@@ -38,6 +38,20 @@ class RecomendacionResponse(BaseModel):
     explicacion: str
 
 
+class MatchCandidatosRequest(BaseModel):
+    vacante_id: UUID
+    limite: int = Field(default=10, ge=1, le=50)
+    umbral: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+class MatchCandidatosResponse(BaseModel):
+    candidato_id: UUID
+    usuario_id: UUID
+    nombre: str
+    score_similitud: float
+    explicacion: str
+
+
 @health_router.get("/health")
 async def health_check() -> dict[str, str]:
     return {"status": "ok"}
@@ -92,5 +106,41 @@ async def get_recomendaciones(
             explicacion=r.explicacion
         )
         for r in recomendaciones
+    ]
+
+
+from application.use_cases import RecomendarCandidatosUseCase
+
+@embedding_router.post("/match-candidatos", response_model=list[MatchCandidatosResponse])
+async def get_match_candidatos(
+    request: MatchCandidatosRequest,
+    session: AsyncSession = Depends(get_session),
+) -> list[MatchCandidatosResponse]:
+    adapter = PgVectorAdapter(session)
+    use_case = RecomendarCandidatosUseCase(adapter)
+    
+    try:
+        candidatos = await use_case.execute(
+            vacante_id=request.vacante_id,
+            limite=request.limite,
+            umbral=request.umbral
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+    return [
+        MatchCandidatosResponse(
+            candidato_id=c.candidato_id,
+            usuario_id=c.usuario_id,
+            nombre=c.nombre,
+            score_similitud=c.score_similitud,
+            explicacion=c.explicacion
+        )
+        for c in candidatos
     ]
 

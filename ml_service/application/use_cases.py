@@ -27,3 +27,16 @@ class GenerarRecomendacionesUseCase:
             candidato_id, limite, umbral
         )
         return recomendaciones
+
+
+class RecomendarCandidatosUseCase:
+    def __init__(self, vector_store: VectorStorePort) -> None:
+        self._vector_store = vector_store
+
+    async def execute(
+        self, vacante_id: UUID, limite: int = 10, umbral: float = 0.5
+    ):
+        candidatos = await self._vector_store.buscar_candidatos_similares(
+            vacante_id, limite, umbral
+        )
+        return candidatos

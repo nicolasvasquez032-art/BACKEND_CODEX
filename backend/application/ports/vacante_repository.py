@@ -16,6 +16,8 @@ class VacanteRepositoryPort(Protocol):
         categoria: str | None,
         salario_min: float | None,
         salario_max: float | None,
+        latitud: float | None = None,
+        longitud: float | None = None,
     ) -> Vacante:
         raise NotImplementedError
 

@@ -5,7 +5,7 @@ import pytest
 
 from application.use_cases.upload_cv import UploadCvCommand, UploadCvUseCase
 from domain.exceptions import CVProcessingError, PermissionDeniedError, ProfileNotFoundError
-from tests.fakes import FakeCvParser, FakePasswordHasher, FakeUserRepository
+from tests.fakes import FakeCvParser, FakeMlService, FakePasswordHasher, FakeUserRepository
 
 
 @pytest.fixture()
@@ -33,7 +33,7 @@ async def test_upload_cv_success(repo_with_candidate):
     repo, user, profile = repo_with_candidate
     parser = FakeCvParser(extracted_text="Experiencia: 3 años en diseño")
 
-    use_case = UploadCvUseCase(repo, parser)
+    use_case = UploadCvUseCase(repo, parser, FakeMlService())
     result = await use_case.execute(
         UploadCvCommand(
             profile_id=profile.id,
@@ -51,7 +51,7 @@ async def test_upload_cv_not_owner_raises(repo_with_candidate):
     repo, user, profile = repo_with_candidate
     parser = FakeCvParser(extracted_text="some text")
 
-    use_case = UploadCvUseCase(repo, parser)
+    use_case = UploadCvUseCase(repo, parser, FakeMlService())
     with pytest.raises(PermissionDeniedError):
         await use_case.execute(
             UploadCvCommand(
@@ -68,7 +68,7 @@ async def test_upload_cv_unsupported_mime_raises(repo_with_candidate):
     repo, user, profile = repo_with_candidate
     parser = FakeCvParser(extracted_text="some text")
 
-    use_case = UploadCvUseCase(repo, parser)
+    use_case = UploadCvUseCase(repo, parser, FakeMlService())
     with pytest.raises(CVProcessingError):
         await use_case.execute(
             UploadCvCommand(
@@ -85,7 +85,7 @@ async def test_upload_cv_empty_extracted_text_raises(repo_with_candidate):
     repo, user, profile = repo_with_candidate
     parser = FakeCvParser(extracted_text="   ")  # solo espacios
 
-    use_case = UploadCvUseCase(repo, parser)
+    use_case = UploadCvUseCase(repo, parser, FakeMlService())
     with pytest.raises(CVProcessingError):
         await use_case.execute(
             UploadCvCommand(
@@ -102,7 +102,7 @@ async def test_upload_cv_profile_not_found_raises():
     repo = FakeUserRepository()
     parser = FakeCvParser(extracted_text="text")
 
-    use_case = UploadCvUseCase(repo, parser)
+    use_case = UploadCvUseCase(repo, parser, FakeMlService())
     with pytest.raises(ProfileNotFoundError):
         await use_case.execute(
             UploadCvCommand(

@@ -92,6 +92,8 @@ class VacanteModel(Base):
     categoria: Mapped[str | None] = mapped_column(String(100), index=True)
     salario_min: Mapped[float | None] = mapped_column(Float)
     salario_max: Mapped[float | None] = mapped_column(Float)
+    latitud: Mapped[float | None] = mapped_column(Float)
+    longitud: Mapped[float | None] = mapped_column(Float)
     creado_en: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
@@ -131,3 +133,39 @@ class PostulacionModel(Base):
 
     vacante: Mapped[VacanteModel] = relationship(back_populates="postulaciones")
     candidato: Mapped[CandidateProfileModel] = relationship()
+
+
+class NotificacionModel(Base):
+    __tablename__ = "notificaciones"
+
+    id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    usuario_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False, index=True
+    )
+    tipo: Mapped[str] = mapped_column(String(50), nullable=False)
+    mensaje: Mapped[str] = mapped_column(Text, nullable=False)
+    leido: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    
+    usuario: Mapped[UserModel] = relationship()
+
+
+class DeviceTokenModel(Base):
+    __tablename__ = "device_tokens"
+
+    id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    usuario_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False, index=True
+    )
+    token: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    dispositivo_info: Mapped[str | None] = mapped_column(String(255))
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    actualizado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+    usuario: Mapped[UserModel] = relationship()

@@ -4,7 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from application.ports import VectorStorePort
-from domain.entities import Recomendacion
+from domain.entities import Recomendacion, MatchCandidato
 
 
 class PgVectorAdapter(VectorStorePort):
@@ -55,3 +55,45 @@ class PgVectorAdapter(VectorStorePort):
             )
             
         return recomendaciones
+
+    async def buscar_candidatos_similares(
+        self, vacante_id: UUID, limite: int = 10, umbral: float = 0.5
+    ) -> list[MatchCandidato]:
+        query = text(
+            """
+            SELECT 
+                p.id as candidato_id,
+                p.user_id,
+                p.full_name as nombre,
+                1 - (v.embedding <=> p.embedding) as score_similitud
+            FROM perfiles_candidato p
+            JOIN vacantes v ON v.id = :vacante_id
+            WHERE v.estado = 'ACTIVA' 
+              AND v.embedding IS NOT NULL 
+              AND p.embedding IS NOT NULL
+              AND 1 - (v.embedding <=> p.embedding) >= :umbral
+            ORDER BY score_similitud DESC
+            LIMIT :limite;
+            """
+        )
+
+        result = await self._session.execute(
+            query,
+            {
+                "vacante_id": vacante_id,
+                "umbral": umbral,
+                "limite": limite,
+            },
+        )
+        rows = result.fetchall()
+
+        return [
+            MatchCandidato(
+                candidato_id=r.candidato_id,
+                usuario_id=r.user_id,
+                nombre=r.nombre,
+                score_similitud=r.score_similitud,
+                explicacion="El perfil del candidato hace match con tu vacante."
+            )
+            for r in rows
+        ]

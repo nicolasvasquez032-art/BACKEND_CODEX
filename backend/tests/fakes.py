@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 from domain.entities.candidate_profile import CandidateProfile
 from domain.entities.password_reset_token import PasswordResetToken
 from domain.entities.user import User, UserRole
+from domain.entities.vacante import Vacante, VacanteEstado
 
 
 # ── Repositorio fake ──────────────────────────────────────────────────────────
@@ -201,11 +202,12 @@ class FakeVacanteRepository:
         descripcion: str,
         requisitos: list[str],
         ubicacion: str,
-        categoria: str | None,
-        salario_min: float | None,
-        salario_max: float | None,
-    ):
-        from domain.entities.vacante import Vacante, VacanteEstado
+        categoria: str | None = None,
+        salario_min: float | None = None,
+        salario_max: float | None = None,
+        latitud: float | None = None,
+        longitud: float | None = None,
+    ) -> Vacante:
         vacante = Vacante(
             id=uuid4(),
             empresa_id=empresa_id,
@@ -302,3 +304,33 @@ class FakePostulacionRepository:
         updated = replace(p, estado=nuevo_estado)
         self.postulaciones[postulacion_id] = updated
         return updated
+
+
+class FakeMlService:
+    async def get_candidate_embedding(self, text: str) -> list[float]:
+        return [0.1, 0.2, 0.3]
+
+    async def get_vacante_embedding(self, text: str) -> list[float]:
+        return [0.1, 0.2, 0.3]
+
+    async def get_recomendaciones(self, candidato_id):
+        return []
+
+    async def get_match_candidatos(self, vacante_id):
+        return []
+
+
+class FakeNotificacionRepository:
+    async def create(self, notificacion) -> None:
+        pass
+
+    async def save_notificacion(self, notificacion) -> None:
+        pass
+        
+    async def get_device_token_by_usuario_id(self, usuario_id):
+        return None
+
+
+class FakePushNotificationPort:
+    async def send_notification(self, token, title, body, data=None) -> None:
+        pass

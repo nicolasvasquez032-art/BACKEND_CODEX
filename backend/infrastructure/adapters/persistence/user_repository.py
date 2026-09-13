@@ -107,7 +107,7 @@ class SqlAlchemyUserRepository:
         model = await self._session.get(CandidateProfileModel, profile_id)
         if model:
             model.embedding = embedding
-            await self._session.flush()
+            await self._session.commit()
 
     # --- Password Reset Tokens ---de recuperación de contraseña ────────────────────────────────
 

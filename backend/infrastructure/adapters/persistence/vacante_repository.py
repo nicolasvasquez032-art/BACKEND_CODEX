@@ -21,6 +21,8 @@ class SqlAlchemyVacanteRepository:
         categoria: str | None,
         salario_min: float | None,
         salario_max: float | None,
+        latitud: float | None = None,
+        longitud: float | None = None,
     ) -> Vacante:
         model = VacanteModel(
             empresa_id=empresa_id,
@@ -31,6 +33,8 @@ class SqlAlchemyVacanteRepository:
             categoria=categoria,
             salario_min=salario_min,
             salario_max=salario_max,
+            latitud=latitud,
+            longitud=longitud,
         )
         self._session.add(model)
         await self._session.flush()
@@ -92,7 +96,7 @@ class SqlAlchemyVacanteRepository:
         model = await self._session.get(VacanteModel, vacante_id)
         if model:
             model.embedding = embedding
-            await self._session.flush()
+            await self._session.commit()
 
     @staticmethod
     def _to_entity(model: VacanteModel) -> Vacante:
@@ -108,4 +112,6 @@ class SqlAlchemyVacanteRepository:
             categoria=model.categoria,
             salario_min=model.salario_min,
             salario_max=model.salario_max,
+            latitud=model.latitud,
+            longitud=model.longitud,
         )

@@ -16,3 +16,12 @@ class Recomendacion:
     score_similitud: float
     explicacion: str
 
+
+@dataclass(frozen=True)
+class MatchCandidato:
+    candidato_id: UUID
+    usuario_id: UUID
+    nombre: str
+    score_similitud: float
+    explicacion: str
+

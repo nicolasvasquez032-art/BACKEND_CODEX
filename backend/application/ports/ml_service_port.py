@@ -22,3 +22,16 @@ class MlServicePort(Protocol):
 
     async def get_recomendaciones(self, candidato_id: UUID) -> list[RecomendacionDTO]:
         raise NotImplementedError
+
+    async def get_match_candidatos(self, vacante_id: UUID) -> list['MatchCandidatoDTO']:
+        raise NotImplementedError
+
+class MatchCandidatoDTO:
+    def __init__(
+        self, candidato_id: UUID, usuario_id: UUID, nombre: str, score_similitud: float, explicacion: str
+    ):
+        self.candidato_id = candidato_id
+        self.usuario_id = usuario_id
+        self.nombre = nombre
+        self.score_similitud = score_similitud
+        self.explicacion = explicacion
