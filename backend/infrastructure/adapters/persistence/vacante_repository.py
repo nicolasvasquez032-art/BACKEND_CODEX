@@ -88,6 +88,12 @@ class SqlAlchemyVacanteRepository:
         await self._session.flush()
         return self._to_entity(model)
 
+    async def update_embedding(self, vacante_id: UUID, embedding: list[float]) -> None:
+        model = await self._session.get(VacanteModel, vacante_id)
+        if model:
+            model.embedding = embedding
+            await self._session.flush()
+
     @staticmethod
     def _to_entity(model: VacanteModel) -> Vacante:
         return Vacante(

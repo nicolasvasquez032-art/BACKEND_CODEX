@@ -3,6 +3,7 @@ from uuid import UUID
 
 from application.ports.cv_parser import CvParserPort
 from application.ports.user_repository import UserRepositoryPort
+from application.ports.ml_service_port import MlServicePort
 from domain.entities.candidate_profile import CandidateProfile
 from domain.exceptions import CVProcessingError, PermissionDeniedError, ProfileNotFoundError
 
@@ -28,9 +29,12 @@ class UploadCvUseCase:
     4. Guarda el texto en el perfil.
     """
 
-    def __init__(self, users: UserRepositoryPort, cv_parser: CvParserPort) -> None:
+    def __init__(
+        self, users: UserRepositoryPort, cv_parser: CvParserPort, ml_service: MlServicePort
+    ) -> None:
         self._users = users
         self._cv_parser = cv_parser
+        self._ml_service = ml_service
 
     async def execute(self, command: UploadCvCommand) -> CandidateProfile:
         profile = await self._users.get_candidate_profile_by_id(command.profile_id)
@@ -58,7 +62,16 @@ class UploadCvUseCase:
                 "o suba directamente la imagen del documento."
             )
 
-        return await self._users.update_cv_text(
+        updated_profile = await self._users.update_cv_text(
             profile_id=command.profile_id,
             cv_text=cv_text,
         )
+
+        try:
+            texto_para_embedding = f"{updated_profile.full_name} {' '.join(updated_profile.skills)} {updated_profile.education or ''} {updated_profile.cv_text or ''}"
+            vector = await self._ml_service.get_candidate_embedding(texto_para_embedding)
+            await self._users.update_embedding_candidato(updated_profile.id, vector)
+        except Exception as e:
+            print(f"Error generando embedding para perfil {updated_profile.id}: {e}")
+
+        return updated_profile

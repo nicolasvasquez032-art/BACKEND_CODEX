@@ -54,7 +54,10 @@ class UserRepositoryPort(Protocol):
     async def update_cv_text(self, profile_id: UUID, cv_text: str) -> CandidateProfile:
         raise NotImplementedError
 
-    # ── Tokens de recuperación de contraseña ────────────────────────────────
+    async def update_embedding_candidato(self, profile_id: UUID, embedding: list[float]) -> None:
+        raise NotImplementedError
+
+    # --- Password Reset Tokens ---de recuperación de contraseña ────────────────────────────────
 
     async def create_password_reset_token(
         self,

@@ -103,7 +103,13 @@ class SqlAlchemyUserRepository:
         await self._session.flush()
         return self._to_candidate_profile_entity(model)
 
-    # ── Tokens de recuperación de contraseña ────────────────────────────────
+    async def update_embedding_candidato(self, profile_id: UUID, embedding: list[float]) -> None:
+        model = await self._session.get(CandidateProfileModel, profile_id)
+        if model:
+            model.embedding = embedding
+            await self._session.flush()
+
+    # --- Password Reset Tokens ---de recuperación de contraseña ────────────────────────────────
 
     async def create_password_reset_token(
         self,

@@ -46,3 +46,6 @@ class VacanteRepositoryPort(Protocol):
 
     async def change_estado(self, vacante_id: UUID, nuevo_estado: VacanteEstado) -> Vacante:
         raise NotImplementedError
+
+    async def update_embedding(self, vacante_id: UUID, embedding: list[float]) -> None:
+        raise NotImplementedError

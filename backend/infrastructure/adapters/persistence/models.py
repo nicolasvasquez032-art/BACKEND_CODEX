@@ -14,6 +14,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from pgvector.sqlalchemy import Vector
 
 from domain.entities.postulacion import PostulacionEstado
 from domain.entities.user import UserRole
@@ -50,6 +51,7 @@ class CandidateProfileModel(Base):
     location: Mapped[str | None] = mapped_column(String(180))
     education: Mapped[str | None] = mapped_column(String(180))
     cv_text: Mapped[str | None] = mapped_column(Text)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(384))
 
     user: Mapped[UserModel] = relationship(back_populates="candidate_profile")
 
@@ -93,7 +95,7 @@ class VacanteModel(Base):
     creado_en: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
-    # embedding: vector(384) — se agrega en Sprint 3 con pgvector
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(384))
 
     empresa: Mapped[UserModel] = relationship()
     postulaciones: Mapped[list["PostulacionModel"]] = relationship(

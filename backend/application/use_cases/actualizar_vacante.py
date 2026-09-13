@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from application.ports.vacante_repository import VacanteRepositoryPort
+from application.ports.ml_service_port import MlServicePort
 from domain.entities.vacante import Vacante
 from domain.exceptions import PermissionDeniedError, VacanteNotFoundError
 
@@ -22,8 +23,9 @@ class ActualizarVacanteCommand:
 class ActualizarVacanteUseCase:
     """Actualiza los datos de una vacante. Solo la empresa dueña puede editarla (RF-02.3)."""
 
-    def __init__(self, vacantes: VacanteRepositoryPort) -> None:
+    def __init__(self, vacantes: VacanteRepositoryPort, ml_service: MlServicePort) -> None:
         self._vacantes = vacantes
+        self._ml_service = ml_service
 
     async def execute(self, command: ActualizarVacanteCommand) -> Vacante:
         vacante = await self._vacantes.find_by_id(command.vacante_id)
@@ -33,7 +35,7 @@ class ActualizarVacanteUseCase:
         if not vacante.puede_ser_editada_por(command.requesting_empresa_id):
             raise PermissionDeniedError("Solo la empresa dueña puede editar esta vacante")
 
-        return await self._vacantes.update(
+        vacante_actualizada = await self._vacantes.update(
             vacante_id=command.vacante_id,
             titulo=command.titulo,
             descripcion=command.descripcion,
@@ -43,3 +45,12 @@ class ActualizarVacanteUseCase:
             salario_min=command.salario_min,
             salario_max=command.salario_max,
         )
+
+        try:
+            texto_para_embedding = f"{vacante_actualizada.titulo} {vacante_actualizada.descripcion} {' '.join(vacante_actualizada.requisitos)}"
+            vector = await self._ml_service.get_vacante_embedding(texto_para_embedding)
+            await self._vacantes.update_embedding(vacante_actualizada.id, vector)
+        except Exception as e:
+            print(f"Error generando embedding para vacante {vacante_actualizada.id}: {e}")
+
+        return vacante_actualizada

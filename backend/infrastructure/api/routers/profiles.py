@@ -18,7 +18,9 @@ from domain.exceptions import CVProcessingError, PermissionDeniedError, ProfileN
 from infrastructure.adapters.cv_parser.composite_parser import CompositeCvParser
 from infrastructure.adapters.persistence.database import get_session
 from infrastructure.adapters.persistence.user_repository import SqlAlchemyUserRepository
+from infrastructure.adapters.ml_client.http_ml_service import HttpMlServiceAdapter
 from infrastructure.api.dependencies import get_current_user, get_cv_parser
+from infrastructure.config import settings
 from infrastructure.api.schemas.profiles import CVUploadResponse, ProfileResponse, ProfileUpdateRequest
 
 router = APIRouter(prefix="/perfiles", tags=["perfiles"])
@@ -78,7 +80,8 @@ async def update_profile(
         )
 
     repo = SqlAlchemyUserRepository(session)
-    use_case = UpdateCandidateProfileUseCase(repo)
+    ml_service = HttpMlServiceAdapter(settings.ml_service_url)
+    use_case = UpdateCandidateProfileUseCase(repo, ml_service)
 
     try:
         profile = await use_case.execute(
@@ -141,7 +144,8 @@ async def upload_cv(
     mime_type = file.content_type or "application/octet-stream"
 
     repo = SqlAlchemyUserRepository(session)
-    use_case = UploadCvUseCase(repo, cv_parser)
+    ml_service = HttpMlServiceAdapter(settings.ml_service_url)
+    use_case = UploadCvUseCase(repo, cv_parser, ml_service)
 
     try:
         profile = await use_case.execute(

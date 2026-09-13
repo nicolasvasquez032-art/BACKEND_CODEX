@@ -18,7 +18,9 @@ from domain.entities.user import User, UserRole
 from domain.exceptions import PermissionDeniedError, VacanteNotFoundError
 from infrastructure.adapters.persistence.database import get_session
 from infrastructure.adapters.persistence.vacante_repository import SqlAlchemyVacanteRepository
+from infrastructure.adapters.ml_client.http_ml_service import HttpMlServiceAdapter
 from infrastructure.api.dependencies import get_current_user
+from infrastructure.config import settings
 from infrastructure.api.schemas.vacantes import (
     ActualizarVacanteRequest,
     CambiarEstadoVacanteRequest,
@@ -76,7 +78,8 @@ async def publicar_vacante(
         )
 
     repo = SqlAlchemyVacanteRepository(session)
-    use_case = PublicarVacanteUseCase(repo)
+    ml_service = HttpMlServiceAdapter(settings.ml_service_url)
+    use_case = PublicarVacanteUseCase(repo, ml_service)
 
     try:
         vacante = await use_case.execute(
@@ -111,7 +114,8 @@ async def actualizar_vacante(
 ) -> VacanteResponse:
     """Actualiza los datos de una vacante. Solo la empresa dueña."""
     repo = SqlAlchemyVacanteRepository(session)
-    use_case = ActualizarVacanteUseCase(repo)
+    ml_service = HttpMlServiceAdapter(settings.ml_service_url)
+    use_case = ActualizarVacanteUseCase(repo, ml_service)
 
     try:
         vacante = await use_case.execute(

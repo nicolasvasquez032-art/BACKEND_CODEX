@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from application.ports.user_repository import UserRepositoryPort
+from application.ports.ml_service_port import MlServicePort
 from domain.entities.candidate_profile import CandidateProfile
 from domain.exceptions import PermissionDeniedError, ProfileNotFoundError
 
@@ -23,8 +24,9 @@ class UpdateCandidateProfileUseCase:
     Solo el propio candidato puede editar su perfil.
     """
 
-    def __init__(self, users: UserRepositoryPort) -> None:
+    def __init__(self, users: UserRepositoryPort, ml_service: MlServicePort) -> None:
         self._users = users
+        self._ml_service = ml_service
 
     async def execute(self, command: UpdateCandidateProfileCommand) -> CandidateProfile:
         profile = await self._users.get_candidate_profile_by_id(command.profile_id)
@@ -34,7 +36,7 @@ class UpdateCandidateProfileUseCase:
         if profile.user_id != command.requesting_user_id:
             raise PermissionDeniedError("Solo el candidato dueño puede editar su perfil")
 
-        return await self._users.update_candidate_profile(
+        updated_profile = await self._users.update_candidate_profile(
             profile_id=command.profile_id,
             full_name=command.full_name,
             skills=command.skills,
@@ -42,3 +44,12 @@ class UpdateCandidateProfileUseCase:
             location=command.location,
             education=command.education,
         )
+
+        try:
+            texto_para_embedding = f"{updated_profile.full_name} {' '.join(updated_profile.skills)} {updated_profile.education or ''} {updated_profile.cv_text or ''}"
+            vector = await self._ml_service.get_candidate_embedding(texto_para_embedding)
+            await self._users.update_embedding_candidato(updated_profile.id, vector)
+        except Exception as e:
+            print(f"Error generando embedding para perfil {updated_profile.id}: {e}")
+
+        return updated_profile

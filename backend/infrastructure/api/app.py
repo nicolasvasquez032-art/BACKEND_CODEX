@@ -6,6 +6,7 @@ from infrastructure.api.routers import (
     postulaciones_router,
     profiles_router,
     vacantes_router,
+    recomendaciones_router,
 )
 
 
@@ -20,4 +21,5 @@ def create_app() -> FastAPI:
     app.include_router(profiles_router)
     app.include_router(vacantes_router)
     app.include_router(postulaciones_router)
+    app.include_router(recomendaciones_router)
     return app
