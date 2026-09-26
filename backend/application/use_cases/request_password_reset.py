@@ -5,7 +5,6 @@ from datetime import UTC, datetime, timedelta
 
 from application.ports.email_service import EmailServicePort
 from application.ports.user_repository import UserRepositoryPort
-from domain.exceptions import UserNotFoundError
 
 # El token expira en 1 hora
 _RESET_TOKEN_EXPIRE_HOURS = 1

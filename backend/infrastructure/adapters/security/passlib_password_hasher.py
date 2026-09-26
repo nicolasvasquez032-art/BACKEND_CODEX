@@ -1,5 +1,5 @@
-from passlib.context import CryptContext
 import passlib.handlers.bcrypt
+from passlib.context import CryptContext
 
 # Monkeypatch for passlib + bcrypt >= 4.0.0 bug
 passlib.handlers.bcrypt.detect_wrap_bug = lambda *args, **kwargs: False

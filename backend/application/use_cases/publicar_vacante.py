@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from application.ports.vacante_repository import VacanteRepositoryPort
 from application.ports.ml_service_port import MlServicePort
 from application.ports.notificacion_ports import NotificacionRepositoryPort, PushNotificationPort
-from domain.entities.vacante import Vacante
+from application.ports.vacante_repository import VacanteRepositoryPort
 from domain.entities.notificacion import Notificacion
+from domain.entities.vacante import Vacante
 
 
 @dataclass(frozen=True)

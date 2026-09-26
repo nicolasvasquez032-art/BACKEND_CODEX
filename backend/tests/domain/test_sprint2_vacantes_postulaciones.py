@@ -18,8 +18,6 @@ from application.use_cases.cambiar_estado_vacante import (
 from application.use_cases.listar_postulaciones import (
     ListarPostulacionesCandidatoQuery,
     ListarPostulacionesCandidatoUseCase,
-    ListarPostulacionesVacanteQuery,
-    ListarPostulacionesVacanteUseCase,
 )
 from application.use_cases.listar_vacantes import ListarVacantesQuery, ListarVacantesUseCase
 from application.use_cases.postularse_a_vacante import (
@@ -35,8 +33,13 @@ from domain.exceptions import (
     PermissionDeniedError,
     VacanteNotFoundError,
 )
-from tests.fakes import FakePostulacionRepository, FakeVacanteRepository, FakeMlService, FakeNotificacionRepository, FakePushNotificationPort
-
+from tests.fakes import (
+    FakeMlService,
+    FakeNotificacionRepository,
+    FakePostulacionRepository,
+    FakePushNotificationPort,
+    FakeVacanteRepository,
+)
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

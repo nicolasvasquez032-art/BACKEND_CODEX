@@ -1,7 +1,8 @@
-import httpx
 from uuid import UUID
 
-from application.ports.ml_service_port import MlServicePort, RecomendacionDTO, MatchCandidatoDTO
+import httpx
+
+from application.ports.ml_service_port import MatchCandidatoDTO, MlServicePort, RecomendacionDTO
 
 
 class HttpMlServiceAdapter(MlServicePort):

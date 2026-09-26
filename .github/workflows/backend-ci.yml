@@ -12,10 +12,22 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
+      - name: Start services (Postgres)
+        run: |
+          docker compose -f ../docker-compose.yml up -d postgres
+          sleep 10
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
       - run: pip install ".[dev]"
-      - run: python -m pytest
-      - run: python -m ruff check .
+      - name: Initialize Database
+        run: |
+          # Set env var to point to localhost so init_db uses the container exposed on 5432
+          export DATABASE_URL=postgresql+asyncpg://talentmatch:talentmatch@localhost:5432/talentmatch
+          python init_db.py
+      - name: Run Tests
+        run: |
+          export DATABASE_URL=postgresql+asyncpg://talentmatch:talentmatch@localhost:5432/talentmatch
+          export ML_SERVICE_URL=http://localhost:8001
+          python -m pytest

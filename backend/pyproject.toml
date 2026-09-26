@@ -13,7 +13,7 @@ dependencies = [
     "pydantic-settings>=2.4.0",
     "python-jose[cryptography]>=3.3.0",
     "python-multipart>=0.0.9",
-    "sqlalchemy>=2.0.32",
+    "sqlalchemy[asyncio]>=2.0.32",
     "pgvector>=0.3.0",
     "uvicorn[standard]>=0.30.6",
     # Sprint 1 — email y parseo de CV

@@ -8,8 +8,9 @@ Create Date: 2026-09-12
 from __future__ import annotations
 
 import sqlalchemy as sa
-from alembic import op
 from pgvector.sqlalchemy import Vector
+
+from alembic import op
 
 revision: str = "202609120004"
 down_revision: str | None = "202609120003"

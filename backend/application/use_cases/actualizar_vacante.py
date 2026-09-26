@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from application.ports.vacante_repository import VacanteRepositoryPort
 from application.ports.ml_service_port import MlServicePort
+from application.ports.vacante_repository import VacanteRepositoryPort
 from domain.entities.vacante import Vacante
 from domain.exceptions import PermissionDeniedError, VacanteNotFoundError
 
