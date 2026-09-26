@@ -31,3 +31,9 @@ ML service:
 
 - `http://localhost:8001/docs`
 
+## Flujo de Trabajo (Git Flow)
+
+Este proyecto utiliza una estrategia de 3 ramas para asegurar la calidad del código:
+- `desarrollo`: Rama donde se integran las nuevas funcionalidades y correcciones.
+- `pre-produccion`: Rama de pruebas (staging) antes de los lanzamientos.
+- `produccion`: Rama principal (equivalente a main) que contiene el código estable desplegado.
