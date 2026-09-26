@@ -1,19 +1,18 @@
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from application.use_cases.get_admin_metrics import (
     GetEfectividadRecomendacionUseCase,
     GetMetricasResumenUseCase,
     GetSectoresDemandaUseCase,
     GetTiempoContratacionUseCase,
-    MetricasResumenResponse,
 )
 from application.use_cases.moderar_vacante import ModerarVacanteUseCase
-from domain.entities.user import User, UserRole
+from domain.entities.user import UserRole
 from domain.entities.vacante import VacanteEstado
 from infrastructure.adapters.persistence.admin_metrics_repository import (
     SqlAlchemyAdminMetricasRepository,
@@ -22,7 +21,7 @@ from infrastructure.adapters.persistence.database import get_session
 from infrastructure.adapters.persistence.vacante_repository import (
     SqlAlchemyVacanteRepository,
 )
-from infrastructure.api.dependencies import get_current_user, require_role
+from infrastructure.api.dependencies import require_role
 from infrastructure.api.schemas.vacantes import VacanteResponse
 
 router = APIRouter(

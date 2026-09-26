@@ -1,7 +1,9 @@
 import asyncio
-from sqlalchemy.ext.asyncio import create_async_engine
-from infrastructure.adapters.persistence.models import Base
 import os
+
+from sqlalchemy.ext.asyncio import create_async_engine
+
+from infrastructure.adapters.persistence.models import Base
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://talentmatch:talentmatch@postgres:5432/talentmatch")
 

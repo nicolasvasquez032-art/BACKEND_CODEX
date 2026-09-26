@@ -16,12 +16,16 @@ from application.use_cases.upload_cv import UploadCvCommand, UploadCvUseCase
 from domain.entities.user import User, UserRole
 from domain.exceptions import CVProcessingError, PermissionDeniedError, ProfileNotFoundError
 from infrastructure.adapters.cv_parser.composite_parser import CompositeCvParser
+from infrastructure.adapters.ml_client.http_ml_service import HttpMlServiceAdapter
 from infrastructure.adapters.persistence.database import get_session
 from infrastructure.adapters.persistence.user_repository import SqlAlchemyUserRepository
-from infrastructure.adapters.ml_client.http_ml_service import HttpMlServiceAdapter
 from infrastructure.api.dependencies import get_current_user, get_cv_parser
+from infrastructure.api.schemas.profiles import (
+    CVUploadResponse,
+    ProfileResponse,
+    ProfileUpdateRequest,
+)
 from infrastructure.config import settings
-from infrastructure.api.schemas.profiles import CVUploadResponse, ProfileResponse, ProfileUpdateRequest
 
 router = APIRouter(prefix="/perfiles", tags=["perfiles"])
 

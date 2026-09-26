@@ -1,8 +1,5 @@
-import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
-
-from main import app  # Ajusta la ruta si 'app' está en otro lugar, por ejemplo 'infrastructure.api.app'
+from httpx import ASGITransport, AsyncClient
 
 
 @pytest_asyncio.fixture(scope="session")

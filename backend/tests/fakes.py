@@ -11,7 +11,6 @@ from domain.entities.password_reset_token import PasswordResetToken
 from domain.entities.user import User, UserRole
 from domain.entities.vacante import Vacante, VacanteEstado
 
-
 # ── Repositorio fake ──────────────────────────────────────────────────────────
 
 class FakeUserRepository:
@@ -193,7 +192,7 @@ class FakeVacanteRepository:
     """Repositorio en memoria para vacantes."""
 
     def __init__(self) -> None:
-        self.vacantes: dict[UUID, "Vacante"] = {}
+        self.vacantes: dict[UUID, Vacante] = {}
 
     async def create(
         self,
@@ -268,7 +267,7 @@ class FakePostulacionRepository:
     """Repositorio en memoria para postulaciones."""
 
     def __init__(self) -> None:
-        self.postulaciones: dict[UUID, "Postulacion"] = {}
+        self.postulaciones: dict[UUID, Postulacion] = {}
 
     async def create(self, candidato_id: UUID, vacante_id: UUID):
         from domain.entities.postulacion import Postulacion, PostulacionEstado

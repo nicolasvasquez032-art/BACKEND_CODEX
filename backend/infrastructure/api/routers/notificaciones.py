@@ -1,14 +1,17 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from uuid import UUID
 
-from domain.entities.user import User
-from infrastructure.adapters.persistence.database import get_session
-from infrastructure.adapters.persistence.notificacion_repository import SqlAlchemyNotificacionRepository
-from application.use_cases.register_device_token import RegisterDeviceTokenUseCase
 from application.use_cases.get_notificaciones import GetNotificacionesUseCase
 from application.use_cases.mark_notificacion_read import MarkNotificacionReadUseCase
+from application.use_cases.register_device_token import RegisterDeviceTokenUseCase
+from domain.entities.user import User
+from infrastructure.adapters.persistence.database import get_session
+from infrastructure.adapters.persistence.notificacion_repository import (
+    SqlAlchemyNotificacionRepository,
+)
 from infrastructure.api.dependencies import get_current_user
 
 router = APIRouter(prefix="/notificaciones", tags=["notificaciones"])

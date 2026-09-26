@@ -42,7 +42,7 @@ async def obtener_recomendaciones(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error obteniendo recomendaciones: {str(e)}"
+            detail=f"Error obteniendo recomendaciones: {e!s}"
         )
 
     return [

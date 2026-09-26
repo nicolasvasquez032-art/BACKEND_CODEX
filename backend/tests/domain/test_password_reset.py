@@ -1,6 +1,5 @@
 """Tests unitarios para RequestPasswordResetUseCase y ConfirmPasswordResetUseCase."""
 import hashlib
-import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest

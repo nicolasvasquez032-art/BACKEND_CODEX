@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from infrastructure.api.routers import (
+    admin_router,
     auth_router,
     health_router,
     notificaciones_router,
@@ -9,7 +10,6 @@ from infrastructure.api.routers import (
     profiles_router,
     recomendaciones_router,
     vacantes_router,
-    admin_router,
 )
 
 

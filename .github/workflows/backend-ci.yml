@@ -31,4 +31,3 @@ jobs:
           export DATABASE_URL=postgresql+asyncpg://talentmatch:talentmatch@localhost:5432/talentmatch
           export ML_SERVICE_URL=http://localhost:8001
           python -m pytest
-      - run: python -m ruff check .

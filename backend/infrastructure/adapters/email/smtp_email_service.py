@@ -3,9 +3,10 @@
 Usa aiosmtplib para envíos no bloqueantes. La configuración se lee
 desde infrastructure.config (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, EMAIL_FROM).
 """
-import aiosmtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+import aiosmtplib
 
 from infrastructure.config import settings
 

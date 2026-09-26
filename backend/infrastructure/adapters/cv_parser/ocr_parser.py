@@ -1,8 +1,8 @@
 """Parser de CV para imágenes usando pytesseract + Pillow (OCR)."""
 import io
 
-from PIL import Image
 import pytesseract
+from PIL import Image
 
 from domain.exceptions import CVProcessingError
 

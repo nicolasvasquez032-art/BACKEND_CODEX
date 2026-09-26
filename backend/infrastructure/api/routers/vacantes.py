@@ -13,22 +13,24 @@ from application.use_cases.cambiar_estado_vacante import (
     CambiarEstadoVacanteUseCase,
 )
 from application.use_cases.listar_vacantes import ListarVacantesQuery, ListarVacantesUseCase
-from application.use_cases.publicar_vacante import PublicarVacanteUseCase, PublicarVacanteCommand
+from application.use_cases.publicar_vacante import PublicarVacanteCommand, PublicarVacanteUseCase
 from domain.entities.user import User, UserRole
 from domain.exceptions import PermissionDeniedError, VacanteNotFoundError
 from infrastructure.adapters.fcm_adapter import MockFcmAdapter
 from infrastructure.adapters.ml_client.http_ml_service import HttpMlServiceAdapter
 from infrastructure.adapters.persistence.database import get_session
-from infrastructure.adapters.persistence.notificacion_repository import SqlAlchemyNotificacionRepository
+from infrastructure.adapters.persistence.notificacion_repository import (
+    SqlAlchemyNotificacionRepository,
+)
 from infrastructure.adapters.persistence.vacante_repository import SqlAlchemyVacanteRepository
 from infrastructure.api.dependencies import get_current_user
-from infrastructure.config import settings
 from infrastructure.api.schemas.vacantes import (
     ActualizarVacanteRequest,
     CambiarEstadoVacanteRequest,
     PublicarVacanteRequest,
     VacanteResponse,
 )
+from infrastructure.config import settings
 
 router = APIRouter(prefix="/vacantes", tags=["vacantes"])
 

@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from application.ports.user_repository import UserRepositoryPort
 from application.ports.ml_service_port import MlServicePort
+from application.ports.user_repository import UserRepositoryPort
 from domain.entities.candidate_profile import CandidateProfile
 from domain.exceptions import PermissionDeniedError, ProfileNotFoundError
 

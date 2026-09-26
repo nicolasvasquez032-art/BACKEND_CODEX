@@ -1,6 +1,7 @@
+from uuid import UUID
+
 import pytest
 from httpx import AsyncClient
-from uuid import UUID
 
 from tests.utils import random_email
 
@@ -82,8 +83,8 @@ async def test_notificacion_al_publicar_vacante(async_client: AsyncClient, monke
     # 4. Publicar vacante afín (desde empresa)
     candidato_user_id = candidato_reg_resp.json()["user_id"]
 
-    from infrastructure.adapters.ml_client.http_ml_service import HttpMlServiceAdapter
     from application.ports.ml_service_port import MatchCandidatoDTO
+    from infrastructure.adapters.ml_client.http_ml_service import HttpMlServiceAdapter
 
     async def mock_get_vacante_embedding(*args, **kwargs):
         return [0.1] * 384

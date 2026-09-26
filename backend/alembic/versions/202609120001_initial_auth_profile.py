@@ -7,9 +7,10 @@ Create Date: 2026-09-12 00:01:00
 """
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision: str = "202609120001"
 down_revision: str | None = None
