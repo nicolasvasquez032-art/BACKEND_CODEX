@@ -6,7 +6,7 @@ from tests.utils import random_email
 
 
 @pytest.mark.asyncio
-async def test_notificacion_al_publicar_vacante(async_client: AsyncClient):
+async def test_notificacion_al_publicar_vacante(async_client: AsyncClient, monkeypatch):
     # 1. Registrar empresa y hacer login
     empresa_email = random_email()
     password = "Password123*"
@@ -80,6 +80,13 @@ async def test_notificacion_al_publicar_vacante(async_client: AsyncClient):
     assert resp.status_code == 200
 
     # 4. Publicar vacante afín (desde empresa)
+    candidato_user_id = candidato_reg_resp.json()["user_id"]
+
+    from infrastructure.adapters.ml_client.http_ml_service import HttpMlServiceAdapter
+    async def mock_get_match(*args, **kwargs):
+        return [UUID(candidato_user_id)]
+    monkeypatch.setattr(HttpMlServiceAdapter, "get_match_candidatos", mock_get_match)
+
     resp = await async_client.post(
         "/vacantes",
         headers=headers_empresa,
@@ -100,7 +107,6 @@ async def test_notificacion_al_publicar_vacante(async_client: AsyncClient):
     # 5. Comprobar notificaciones del candidato
     # Como la vacante se publica asíncronamente en el use_case, el await de get_match_candidatos se hace en el flujo.
     # Por lo tanto las notificaciones ya deberían estar generadas.
-    candidato_user_id = candidato_reg_resp.json()["user_id"]
 
     resp = await async_client.get(
         f"/notificaciones/usuario/{candidato_user_id}",

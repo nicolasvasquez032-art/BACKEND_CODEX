@@ -12,11 +12,10 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
-      - name: Start services (Postgres & ML Service)
+      - name: Start services (Postgres)
         run: |
-          docker compose -f ../docker-compose.yml up -d postgres ml_service
-          echo "Waiting for ML service to be ready..."
-          timeout 300 bash -c 'while [[ "$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8001/docs)" != "200" ]]; do sleep 5; done' || false
+          docker compose -f ../docker-compose.yml up -d postgres
+          sleep 10
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
