@@ -83,8 +83,23 @@ async def test_notificacion_al_publicar_vacante(async_client: AsyncClient, monke
     candidato_user_id = candidato_reg_resp.json()["user_id"]
 
     from infrastructure.adapters.ml_client.http_ml_service import HttpMlServiceAdapter
+    from application.ports.ml_service_port import MatchCandidatoDTO
+
+    async def mock_get_vacante_embedding(*args, **kwargs):
+        return [0.1] * 384
+
     async def mock_get_match(*args, **kwargs):
-        return [UUID(candidato_user_id)]
+        return [
+            MatchCandidatoDTO(
+                candidato_id=UUID(perfil_id),
+                usuario_id=UUID(candidato_user_id),
+                nombre="Candidato Notif",
+                score_similitud=0.9,
+                explicacion="Mock"
+            )
+        ]
+    
+    monkeypatch.setattr(HttpMlServiceAdapter, "get_vacante_embedding", mock_get_vacante_embedding)
     monkeypatch.setattr(HttpMlServiceAdapter, "get_match_candidatos", mock_get_match)
 
     resp = await async_client.post(
