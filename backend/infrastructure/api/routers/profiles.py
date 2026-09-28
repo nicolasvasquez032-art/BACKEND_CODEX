@@ -30,6 +30,32 @@ from infrastructure.config import settings
 router = APIRouter(prefix="/perfiles", tags=["perfiles"])
 
 
+@router.get("/me", response_model=ProfileResponse)
+async def get_my_profile(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> ProfileResponse:
+    """Devuelve el perfil del candidato autenticado (usando su JWT).
+
+    Útil para que el cliente móvil obtenga el profile_id sin conocerlo previamente.
+    """
+    repo = SqlAlchemyUserRepository(session)
+    profile = await repo.get_candidate_profile_by_user_id(current_user.id)
+    if profile is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Perfil no encontrado")
+
+    return ProfileResponse(
+        id=profile.id,
+        user_id=profile.user_id,
+        full_name=profile.full_name,
+        skills=profile.skills,
+        experience_years=profile.experience_years,
+        location=profile.location,
+        education=profile.education,
+        cv_text=profile.cv_text,
+    )
+
+
 @router.get("/{profile_id}", response_model=ProfileResponse)
 async def get_profile(
     profile_id: UUID,
