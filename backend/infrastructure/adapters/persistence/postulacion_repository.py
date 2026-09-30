@@ -63,6 +63,14 @@ class SqlAlchemyPostulacionRepository:
         await self._session.flush()
         return self._to_entity(model)
 
+    async def delete(self, postulacion_id: UUID) -> bool:
+        model = await self._session.get(PostulacionModel, postulacion_id)
+        if model:
+            await self._session.delete(model)
+            await self._session.flush()
+            return True
+        return False
+
     @staticmethod
     def _to_entity(model: PostulacionModel) -> Postulacion:
         return Postulacion(
