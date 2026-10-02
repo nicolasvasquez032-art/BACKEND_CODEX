@@ -1,0 +1,35 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches:
+      - desarrollo
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to AWS EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ${{ secrets.AWS_USERNAME }}
+          key: ${{ secrets.AWS_PRIVATE_KEY }}
+          script: |
+            cd ~/BACKEND_CODEX
+            git fetch --all
+            git reset --hard origin/desarrollo
+            
+            # Instalar dependencias nuevas si las hay
+            source venv/bin/activate
+            pip install -r backend/requirements.txt
+            
+            cd backend
+            
+            # Detener el servidor actual
+            pkill -f "uvicorn infrastructure.api.app:app" || true
+            sleep 2
+            
+            # Levantar el servidor nuevamente en background
+            nohup uvicorn infrastructure.api.app:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
