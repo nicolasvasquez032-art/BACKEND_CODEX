@@ -21,11 +21,10 @@ jobs:
             git fetch --all
             git reset --hard origin/desarrollo
             
-            # Instalar dependencias nuevas si las hay
+            # Instalar nuevas dependencias si las hay
             source venv/bin/activate
-            pip install -r backend/requirements.txt
-            
             cd backend
+            pip install -e .
             
             # Detener el servidor actual
             pkill -f "uvicorn infrastructure.api.app:app" || true
