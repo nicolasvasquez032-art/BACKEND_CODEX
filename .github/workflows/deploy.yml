@@ -30,7 +30,5 @@ jobs:
             pkill -f "uvicorn infrastructure.api.app:app" || true
             sleep 2
             
-            # Levantar el servidor nuevamente desvinculado de la terminal
-            nohup uvicorn infrastructure.api.app:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 < /dev/null &
-            sleep 2
-            exit 0
+            # Levantar el servidor completamente aislado de la sesión SSH
+            nohup bash -c 'uvicorn infrastructure.api.app:app --host 0.0.0.0 --port 8000 > backend.log 2>&1' >/dev/null 2>&1 &
