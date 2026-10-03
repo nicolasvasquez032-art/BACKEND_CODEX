@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from infrastructure.api.dependencies import get_db_session
+from infrastructure.api.dependencies import get_session
 from infrastructure.adapters.persistence.user_repository import SqlAlchemyUserRepository
 
 router = APIRouter(prefix="/pagos", tags=["pagos"])
@@ -57,7 +57,7 @@ async def crear_preferencia_pro(request: PlanProRequest):
         raise HTTPException(status_code=500, detail=f"Error al crear la preferencia de pago: {str(e)}")
 
 @router.post("/webhook")
-async def mercadopago_webhook(request: Request, db: AsyncSession = Depends(get_db_session)):
+async def mercadopago_webhook(request: Request, db: AsyncSession = Depends(get_session)):
     """
     Webhook para recibir las notificaciones de pagos exitosos de Mercado Pago.
     Aquí activarías el plan PRO de la empresa en la base de datos.
