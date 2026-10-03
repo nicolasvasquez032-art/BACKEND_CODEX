@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - desarrollo
+      - main
 
 jobs:
   deploy:
@@ -22,7 +23,8 @@ jobs:
           ssh -i ~/.ssh/key.pem ${{ secrets.AWS_USERNAME }}@${{ secrets.AWS_HOST }} << 'EOF'
             cd ~/BACKEND_CODEX
             git fetch --all
-            git reset --hard origin/desarrollo
+            git checkout ${{ github.ref_name }}
+            git reset --hard origin/${{ github.ref_name }}
             
             # Instalar nuevas dependencias si las hay
             source venv/bin/activate
@@ -34,6 +36,6 @@ jobs:
             sleep 2
             
             # Levantar el servidor en background (SSH Nativo)
-            nohup uvicorn infrastructure.api.app:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+            nohup uvicorn infrastructure.api.app:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 < /dev/null &
             exit
           EOF
