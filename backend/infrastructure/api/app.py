@@ -6,6 +6,7 @@ from infrastructure.api.routers import (
     auth_router,
     health_router,
     notificaciones_router,
+    pagos_router,
     postulaciones_router,
     profiles_router,
     recomendaciones_router,
@@ -33,5 +34,6 @@ def create_app() -> FastAPI:
     app.include_router(postulaciones_router)
     app.include_router(recomendaciones_router)
     app.include_router(notificaciones_router)
+    app.include_router(pagos_router)
     app.include_router(admin_router)
     return app
