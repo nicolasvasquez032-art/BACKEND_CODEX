@@ -15,6 +15,7 @@ class JwtTokenService:
             "sub": str(user.id),
             "email": user.email,
             "role": user.role.value,
+            "is_premium": user.is_premium,
             "exp": expires_at,
         }
         return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
