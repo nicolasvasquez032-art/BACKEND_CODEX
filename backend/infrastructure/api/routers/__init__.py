@@ -7,5 +7,6 @@ from infrastructure.api.routers.profiles import router as profiles_router
 from infrastructure.api.routers.recomendaciones import router as recomendaciones_router
 from infrastructure.api.routers.vacantes import router as vacantes_router
 from infrastructure.api.routers.pagos import router as pagos_router
+from infrastructure.api.routers.chat import router as chat_router
 
-__all__ = ["admin_router", "auth_router", "health_router", "notificaciones_router", "pagos_router", "postulaciones_router", "profiles_router", "recomendaciones_router", "vacantes_router"]
+__all__ = ["admin_router", "auth_router", "chat_router", "health_router", "notificaciones_router", "pagos_router", "postulaciones_router", "profiles_router", "recomendaciones_router", "vacantes_router"]

@@ -170,3 +170,47 @@ class DeviceTokenModel(Base):
     )
 
     usuario: Mapped[UserModel] = relationship()
+
+
+class ChatRoomModel(Base):
+    __tablename__ = "chat_rooms"
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "candidato_id", name="uq_chat_empresa_candidato"),
+    )
+
+    id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    empresa_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False, index=True
+    )
+    candidato_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False, index=True
+    )
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+    empresa: Mapped[UserModel] = relationship(foreign_keys=[empresa_id])
+    candidato: Mapped[UserModel] = relationship(foreign_keys=[candidato_id])
+    messages: Mapped[list["MessageModel"]] = relationship(
+        back_populates="room", cascade="all, delete-orphan", order_by="MessageModel.creado_en"
+    )
+
+
+class MessageModel(Base):
+    __tablename__ = "messages"
+
+    id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    room_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("chat_rooms.id"), nullable=False, index=True
+    )
+    sender_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=False
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    leido: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+    room: Mapped[ChatRoomModel] = relationship(back_populates="messages")
+    sender: Mapped[UserModel] = relationship(foreign_keys=[sender_id])

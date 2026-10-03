@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from infrastructure.api.routers import (
     admin_router,
     auth_router,
+    chat_router,
     health_router,
     notificaciones_router,
     pagos_router,
@@ -36,4 +37,5 @@ def create_app() -> FastAPI:
     app.include_router(notificaciones_router)
     app.include_router(pagos_router)
     app.include_router(admin_router)
+    app.include_router(chat_router)
     return app
