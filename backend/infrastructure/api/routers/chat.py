@@ -64,3 +64,52 @@ async def websocket_endpoint(websocket: WebSocket, user_id: UUID, session: Async
             
     except WebSocketDisconnect:
         manager.disconnect(user_id)
+
+
+from pydantic import BaseModel
+from typing import List
+from datetime import datetime
+
+class CreateRoomRequest(BaseModel):
+    empresa_id: UUID
+    candidato_id: UUID
+
+class MessageResponse(BaseModel):
+    id: UUID
+    room_id: UUID
+    sender_id: UUID
+    content: str
+    creado_en: datetime
+    leido: bool
+
+@router.post("/room")
+async def create_or_get_room(request: CreateRoomRequest, session: AsyncSession = Depends(get_session)):
+    # Verify if room already exists
+    result = await session.execute(
+        select(ChatRoomModel).where(
+            ChatRoomModel.empresa_id == request.empresa_id,
+            ChatRoomModel.candidato_id == request.candidato_id
+        )
+    )
+    room = result.scalar_one_or_none()
+    
+    if room:
+        return {"id": str(room.id), "empresa_id": str(room.empresa_id), "candidato_id": str(room.candidato_id)}
+        
+    # Create new room
+    new_room = ChatRoomModel(
+        empresa_id=request.empresa_id,
+        candidato_id=request.candidato_id
+    )
+    session.add(new_room)
+    await session.commit()
+    await session.refresh(new_room)
+    return {"id": str(new_room.id), "empresa_id": str(new_room.empresa_id), "candidato_id": str(new_room.candidato_id)}
+
+@router.get("/{room_id}/messages", response_model=List[MessageResponse])
+async def get_messages(room_id: UUID, session: AsyncSession = Depends(get_session)):
+    result = await session.execute(
+        select(MessageModel).where(MessageModel.room_id == room_id).order_by(MessageModel.creado_en.asc())
+    )
+    messages = result.scalars().all()
+    return messages
