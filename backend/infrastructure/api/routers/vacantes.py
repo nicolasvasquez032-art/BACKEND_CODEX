@@ -12,6 +12,7 @@ from application.use_cases.cambiar_estado_vacante import (
     CambiarEstadoVacanteCommand,
     CambiarEstadoVacanteUseCase,
 )
+from application.use_cases.eliminar_vacante import EliminarVacanteCommand, EliminarVacanteUseCase
 from application.use_cases.listar_vacantes import ListarVacantesQuery, ListarVacantesUseCase
 from application.use_cases.publicar_vacante import PublicarVacanteCommand, PublicarVacanteUseCase
 from domain.entities.user import User, UserRole
@@ -193,3 +194,30 @@ async def cambiar_estado_vacante(
         ) from exc
 
     return _to_response(vacante)
+
+
+@router.delete("/{vacante_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def eliminar_vacante(
+    vacante_id: UUID,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Elimina una vacante. Solo la empresa dueña."""
+    repo = SqlAlchemyVacanteRepository(session)
+    use_case = EliminarVacanteUseCase(repo)
+
+    try:
+        await use_case.execute(EliminarVacanteCommand(vacante_id, current_user.id))
+        await session.commit()
+    except VacanteNotFoundError:
+        await session.rollback()
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacante no encontrada")
+    except PermissionDeniedError:
+        await session.rollback()
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+    except SQLAlchemyError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al eliminar la vacante",
+        ) from exc

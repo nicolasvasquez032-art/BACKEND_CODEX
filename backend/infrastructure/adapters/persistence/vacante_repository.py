@@ -98,6 +98,12 @@ class SqlAlchemyVacanteRepository:
             model.embedding = embedding
             await self._session.commit()
 
+    async def delete(self, vacante_id: UUID) -> None:
+        model = await self._session.get(VacanteModel, vacante_id)
+        if model:
+            await self._session.delete(model)
+            await self._session.flush()
+
     @staticmethod
     def _to_entity(model: VacanteModel) -> Vacante:
         return Vacante(

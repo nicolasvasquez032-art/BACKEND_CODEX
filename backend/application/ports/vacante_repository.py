@@ -51,3 +51,6 @@ class VacanteRepositoryPort(Protocol):
 
     async def update_embedding(self, vacante_id: UUID, embedding: list[float]) -> None:
         raise NotImplementedError
+
+    async def delete(self, vacante_id: UUID) -> None:
+        raise NotImplementedError
