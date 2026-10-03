@@ -8,7 +8,7 @@ from domain.entities.vacante import VacanteEstado
 
 class PublicarVacanteRequest(BaseModel):
     titulo: str = Field(min_length=3, max_length=200)
-    descripcion: str = Field(min_length=10)
+    descripcion: str
     requisitos: list[str] = Field(default_factory=list)
     ubicacion: str = Field(min_length=2, max_length=180)
     categoria: str | None = Field(default=None, max_length=100)
@@ -20,7 +20,7 @@ class PublicarVacanteRequest(BaseModel):
 
 class ActualizarVacanteRequest(BaseModel):
     titulo: str = Field(min_length=3, max_length=200)
-    descripcion: str = Field(min_length=10)
+    descripcion: str
     requisitos: list[str] = Field(default_factory=list)
     ubicacion: str = Field(min_length=2, max_length=180)
     categoria: str | None = Field(default=None, max_length=100)
