@@ -1,7 +1,11 @@
 import os
 import mercadopago
-from fastapi import APIRouter, HTTPException
+from uuid import UUID
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+from infrastructure.api.dependencies import get_db_session
+from infrastructure.adapters.persistence.user_repository import SqlAlchemyUserRepository
 
 router = APIRouter(prefix="/pagos", tags=["pagos"])
 
@@ -53,13 +57,38 @@ async def crear_preferencia_pro(request: PlanProRequest):
         raise HTTPException(status_code=500, detail=f"Error al crear la preferencia de pago: {str(e)}")
 
 @router.post("/webhook")
-async def mercadopago_webhook(data: dict):
+async def mercadopago_webhook(request: Request, db: AsyncSession = Depends(get_db_session)):
     """
     Webhook para recibir las notificaciones de pagos exitosos de Mercado Pago.
     Aquí activarías el plan PRO de la empresa en la base de datos.
     """
-    # 1. Obtener el id del pago y buscarlo en la API de Mercado Pago
-    # 2. Si el status == 'approved', leer el external_reference (empresa_id)
-    # 3. Actualizar la base de datos para darle a la empresa beneficios PRO
-    print(f"Webhook recibido: {data}")
+    try:
+        data = await request.json()
+        print(f"Webhook recibido: {data}")
+        
+        # Mercado Pago envía notificaciones de distintos tipos. Nos interesa payment.
+        action = data.get("action")
+        type_ = data.get("type")
+        
+        if action == "payment.created" or type_ == "payment":
+            # El ID del pago puede venir en data['data']['id']
+            payment_id = data.get("data", {}).get("id")
+            
+            if payment_id:
+                payment_info = sdk.payment().get(payment_id)
+                payment = payment_info.get("response", {})
+                
+                if payment.get("status") == "approved":
+                    empresa_id_str = payment.get("external_reference")
+                    if empresa_id_str:
+                        empresa_id = UUID(empresa_id_str)
+                        user_repo = SqlAlchemyUserRepository(db)
+                        
+                        await user_repo.mark_user_as_premium(empresa_id)
+                        await db.commit()
+                        print(f"¡Éxito! Empresa {empresa_id} marcada como PRO.")
+    except Exception as e:
+        print(f"Error procesando webhook de Mercado Pago: {e}")
+
+    # Siempre devolver 200 OK para que MP no reintente
     return {"status": "ok"}

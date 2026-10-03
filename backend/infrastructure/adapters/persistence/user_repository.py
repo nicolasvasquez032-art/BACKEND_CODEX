@@ -41,6 +41,12 @@ class SqlAlchemyUserRepository:
             model.password_hash = new_password_hash
             await self._session.flush()
 
+    async def mark_user_as_premium(self, user_id: UUID) -> None:
+        model = await self._session.get(UserModel, user_id)
+        if model is not None:
+            model.is_premium = True
+            await self._session.flush()
+
     # ── Perfiles de candidato ────────────────────────────────────────────────
 
     async def create_candidate_profile(
@@ -150,6 +156,7 @@ class SqlAlchemyUserRepository:
             email=model.email,
             password_hash=model.password_hash,
             role=model.role,
+            is_premium=model.is_premium,
             created_at=model.created_at,
         )
 

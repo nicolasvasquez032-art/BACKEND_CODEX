@@ -17,4 +17,5 @@ class User:
     password_hash: str
     role: UserRole
     created_at: datetime
+    is_premium: bool = False
 
