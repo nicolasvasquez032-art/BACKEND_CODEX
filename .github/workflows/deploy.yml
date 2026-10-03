@@ -1,0 +1,39 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches:
+      - desarrollo
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AWS_PRIVATE_KEY }}" > ~/.ssh/key.pem
+          chmod 600 ~/.ssh/key.pem
+          ssh-keyscan -H ${{ secrets.AWS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy and Restart Server
+        run: |
+          ssh -i ~/.ssh/key.pem ${{ secrets.AWS_USERNAME }}@${{ secrets.AWS_HOST }} << 'EOF'
+            cd ~/BACKEND_CODEX
+            git fetch --all
+            git reset --hard origin/desarrollo
+            
+            # Instalar nuevas dependencias si las hay
+            source venv/bin/activate
+            cd backend
+            pip install -e .
+            
+            # Detener el servidor actual
+            pkill -f "uvicorn infrastructure.api.app:app" || true
+            sleep 2
+            
+            # Levantar el servidor en background (SSH Nativo)
+            nohup uvicorn infrastructure.api.app:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 &
+            exit
+          EOF

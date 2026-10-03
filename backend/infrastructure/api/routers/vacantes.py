@@ -16,7 +16,7 @@ from application.use_cases.listar_vacantes import ListarVacantesQuery, ListarVac
 from application.use_cases.publicar_vacante import PublicarVacanteCommand, PublicarVacanteUseCase
 from domain.entities.user import User, UserRole
 from domain.exceptions import PermissionDeniedError, VacanteNotFoundError
-from infrastructure.adapters.fcm_adapter import MockFcmAdapter
+from infrastructure.adapters.fcm_adapter import RealFcmAdapter
 from infrastructure.adapters.ml_client.http_ml_service import HttpMlServiceAdapter
 from infrastructure.adapters.persistence.database import get_session
 from infrastructure.adapters.persistence.notificacion_repository import (
@@ -86,7 +86,7 @@ async def publicar_vacante(
     repo = SqlAlchemyVacanteRepository(session)
     ml_service = HttpMlServiceAdapter(settings.ml_service_url)
     notificacion_repo = SqlAlchemyNotificacionRepository(session)
-    push_port = MockFcmAdapter()
+    push_port = RealFcmAdapter()
     
     use_case = PublicarVacanteUseCase(repo, ml_service, notificacion_repo, push_port)
 

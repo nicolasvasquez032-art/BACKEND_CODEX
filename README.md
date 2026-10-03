@@ -37,3 +37,4 @@ Este proyecto utiliza una estrategia de 3 ramas para asegurar la calidad del có
 - `desarrollo`: Rama donde se integran las nuevas funcionalidades y correcciones.
 - `pre-produccion`: Rama de pruebas (staging) antes de los lanzamientos.
 - `produccion`: Rama principal (equivalente a main) que contiene el código estable desplegado.
+Automatización de despliegue configurada.
