@@ -7,7 +7,7 @@ router = APIRouter(prefix="/pagos", tags=["pagos"])
 
 # Configuramos el SDK con nuestro Access Token
 # Se puede usar una variable de entorno en producción (os.getenv("MP_ACCESS_TOKEN"))
-MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN", "TEST-7254881140306354-100220-db98eb7b8434771cbbfd2e68c683b5f4-123456789")
+MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN", "APP_USR-2359765611894441-100221-3aaf4343fb9546c1ce1dcb0716f0a166-3735144816")
 sdk = mercadopago.SDK(MP_ACCESS_TOKEN)
 
 class PlanProRequest(BaseModel):
