@@ -57,6 +57,10 @@ class SqlAlchemyUserRepository:
         experience_years: int,
         location: str | None,
         education: str | None,
+        phone: str | None = None,
+        portfolio_url: str | None = None,
+        about_me: str | None = None,
+        job_title: str | None = None,
     ) -> CandidateProfile:
         model = CandidateProfileModel(
             user_id=user_id,
@@ -65,6 +69,10 @@ class SqlAlchemyUserRepository:
             experience_years=experience_years,
             location=location,
             education=education,
+            phone=phone,
+            portfolio_url=portfolio_url,
+            about_me=about_me,
+            job_title=job_title,
         )
         self._session.add(model)
         await self._session.flush()
@@ -89,6 +97,10 @@ class SqlAlchemyUserRepository:
         experience_years: int,
         location: str | None,
         education: str | None,
+        phone: str | None = None,
+        portfolio_url: str | None = None,
+        about_me: str | None = None,
+        job_title: str | None = None,
     ) -> CandidateProfile:
         model = await self._session.get(CandidateProfileModel, profile_id)
         if model is None:
@@ -98,6 +110,10 @@ class SqlAlchemyUserRepository:
         model.experience_years = experience_years
         model.location = location
         model.education = education
+        model.phone = phone
+        model.portfolio_url = portfolio_url
+        model.about_me = about_me
+        model.job_title = job_title
         await self._session.flush()
         return self._to_candidate_profile_entity(model)
 
@@ -171,6 +187,10 @@ class SqlAlchemyUserRepository:
             location=model.location,
             education=model.education,
             cv_text=model.cv_text,
+            phone=model.phone,
+            portfolio_url=model.portfolio_url,
+            about_me=model.about_me,
+            job_title=model.job_title,
         )
 
     @staticmethod

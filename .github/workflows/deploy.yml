@@ -31,6 +31,9 @@ jobs:
             cd backend
             pip install -e .
             
+            # Ejecutar migraciones
+            alembic upgrade head
+            
             # Detener el servidor actual
             pkill -f "uvicorn infrastructure.api.app:app" || true
             sleep 2

@@ -12,4 +12,8 @@ class CandidateProfile:
     location: str | None = None
     education: str | None = None
     cv_text: str | None = None
+    phone: str | None = None
+    portfolio_url: str | None = None
+    about_me: str | None = None
+    job_title: str | None = None
 

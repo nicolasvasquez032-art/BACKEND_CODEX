@@ -52,6 +52,10 @@ class CandidateProfileModel(Base):
     location: Mapped[str | None] = mapped_column(String(180))
     education: Mapped[str | None] = mapped_column(String(180))
     cv_text: Mapped[str | None] = mapped_column(Text)
+    phone: Mapped[str | None] = mapped_column(String(50))
+    portfolio_url: Mapped[str | None] = mapped_column(String(255))
+    about_me: Mapped[str | None] = mapped_column(Text)
+    job_title: Mapped[str | None] = mapped_column(String(100))
     embedding: Mapped[list[float] | None] = mapped_column(Vector(384))
 
     user: Mapped[UserModel] = relationship(back_populates="candidate_profile")

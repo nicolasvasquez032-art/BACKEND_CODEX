@@ -53,6 +53,10 @@ async def get_my_profile(
         location=profile.location,
         education=profile.education,
         cv_text=profile.cv_text,
+        phone=profile.phone,
+        portfolio_url=profile.portfolio_url,
+        about_me=profile.about_me,
+        job_title=profile.job_title,
     )
 
 
@@ -92,6 +96,10 @@ async def get_profile(
         location=profile.location,
         education=profile.education,
         cv_text=profile.cv_text,
+        phone=profile.phone,
+        portfolio_url=profile.portfolio_url,
+        about_me=profile.about_me,
+        job_title=profile.job_title,
     )
 
 
@@ -123,6 +131,10 @@ async def update_profile(
                 experience_years=request.experience_years,
                 location=request.location,
                 education=request.education,
+                phone=request.phone,
+                portfolio_url=request.portfolio_url,
+                about_me=request.about_me,
+                job_title=request.job_title,
             )
         )
         await session.commit()
@@ -148,6 +160,10 @@ async def update_profile(
         location=profile.location,
         education=profile.education,
         cv_text=profile.cv_text,
+        phone=profile.phone,
+        portfolio_url=profile.portfolio_url,
+        about_me=profile.about_me,
+        job_title=profile.job_title,
     )
 
 

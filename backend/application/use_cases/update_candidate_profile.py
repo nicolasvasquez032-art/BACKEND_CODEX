@@ -16,6 +16,10 @@ class UpdateCandidateProfileCommand:
     experience_years: int
     location: str | None = None
     education: str | None = None
+    phone: str | None = None
+    portfolio_url: str | None = None
+    about_me: str | None = None
+    job_title: str | None = None
 
 
 class UpdateCandidateProfileUseCase:
@@ -43,10 +47,14 @@ class UpdateCandidateProfileUseCase:
             experience_years=command.experience_years,
             location=command.location,
             education=command.education,
+            phone=command.phone,
+            portfolio_url=command.portfolio_url,
+            about_me=command.about_me,
+            job_title=command.job_title,
         )
 
         try:
-            texto_para_embedding = f"{updated_profile.full_name} {' '.join(updated_profile.skills)} {updated_profile.education or ''} {updated_profile.cv_text or ''}"
+            texto_para_embedding = f"{updated_profile.full_name} {updated_profile.job_title or ''} {' '.join(updated_profile.skills)} {updated_profile.education or ''} {updated_profile.about_me or ''} {updated_profile.cv_text or ''}"
             vector = await self._ml_service.get_candidate_embedding(texto_para_embedding)
             await self._users.update_embedding_candidato(updated_profile.id, vector)
         except Exception as e:

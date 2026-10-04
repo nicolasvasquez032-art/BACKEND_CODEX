@@ -9,6 +9,10 @@ class ProfileUpdateRequest(BaseModel):
     experience_years: int = Field(ge=0, le=80)
     location: str | None = Field(default=None, max_length=180)
     education: str | None = Field(default=None, max_length=180)
+    phone: str | None = Field(default=None, max_length=50)
+    portfolio_url: str | None = Field(default=None, max_length=255)
+    about_me: str | None = Field(default=None)
+    job_title: str | None = Field(default=None, max_length=100)
 
 
 class ProfileResponse(BaseModel):
@@ -20,6 +24,10 @@ class ProfileResponse(BaseModel):
     location: str | None
     education: str | None
     cv_text: str | None
+    phone: str | None = None
+    portfolio_url: str | None = None
+    about_me: str | None = None
+    job_title: str | None = None
 
 
 class CVUploadResponse(BaseModel):
