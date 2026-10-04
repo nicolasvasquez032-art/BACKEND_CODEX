@@ -35,7 +35,7 @@ jobs:
             alembic upgrade head
             
             # Detener el servidor actual
-            pkill -f "uvicorn infrastructure.api.app:app" || true
+            pkill -f uvicorn || true
             sleep 2
             
             # Levantar el servidor en background (SSH Nativo)

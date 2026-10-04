@@ -46,6 +46,10 @@ class CandidateRegisterResponse(BaseModel):
     experience_years: int
     location: str | None
     education: str | None
+    phone: str | None = None
+    portfolio_url: str | None = None
+    about_me: str | None = None
+    job_title: str | None = None
 
 
 class RequestPasswordResetRequest(BaseModel):

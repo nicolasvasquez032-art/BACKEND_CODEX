@@ -55,6 +55,10 @@ class FakeUserRepository:
         experience_years: int,
         location: str | None,
         education: str | None,
+        phone: str | None = None,
+        portfolio_url: str | None = None,
+        about_me: str | None = None,
+        job_title: str | None = None,
     ) -> CandidateProfile:
         profile = CandidateProfile(
             id=uuid4(),
@@ -64,6 +68,10 @@ class FakeUserRepository:
             experience_years=experience_years,
             location=location,
             education=education,
+            phone=phone,
+            portfolio_url=portfolio_url,
+            about_me=about_me,
+            job_title=job_title,
         )
         self.profiles[profile.id] = profile
         return profile
@@ -82,6 +90,10 @@ class FakeUserRepository:
         experience_years: int,
         location: str | None,
         education: str | None,
+        phone: str | None = None,
+        portfolio_url: str | None = None,
+        about_me: str | None = None,
+        job_title: str | None = None,
     ) -> CandidateProfile:
         from domain.exceptions import ProfileNotFoundError
         profile = self.profiles.get(profile_id)
@@ -95,6 +107,10 @@ class FakeUserRepository:
             experience_years=experience_years,
             location=location,
             education=education,
+            phone=phone,
+            portfolio_url=portfolio_url,
+            about_me=about_me,
+            job_title=job_title,
         )
         self.profiles[profile_id] = updated
         return updated
