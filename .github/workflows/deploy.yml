@@ -39,7 +39,7 @@ jobs:
             sleep 2
             
             # Levantar el servidor en background (usando tmux para evitar que muera con SSH)
-            tmux kill-session -t backend || true
-            tmux new-session -d -s backend "bash -c 'cd ~/BACKEND_CODEX/backend && source ../venv/bin/activate && uvicorn infrastructure.api.app:app --host 0.0.0.0 --port 8000 > backend.log 2>&1'"
-            exit
+            # Levantar el servidor en background y desconectarlo del terminal para que no muera con SSH
+            bash -c "cd ~/BACKEND_CODEX/backend && source ../venv/bin/activate && nohup uvicorn infrastructure.api.app:app --host 0.0.0.0 --port 8000 > backend.log 2>&1 & disown"
+            sleep 3
           EOF
