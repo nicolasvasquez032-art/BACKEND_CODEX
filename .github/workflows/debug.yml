@@ -1,4 +1,4 @@
-name: Fetch Backend Log
+name: Check Docker
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  fetch-log:
+  check-docker:
     runs-on: ubuntu-latest
     steps:
       - name: Configure SSH Key
@@ -16,9 +16,9 @@ jobs:
           chmod 600 ~/.ssh/key.pem
           ssh-keyscan -H ${{ secrets.AWS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Get Log
+      - name: Check
         run: |
           ssh -i ~/.ssh/key.pem ${{ secrets.AWS_USERNAME }}@${{ secrets.AWS_HOST }} << 'INNER_EOF'
-            tail -n 100 ~/BACKEND_CODEX/backend/backend.log
+            docker ps
             exit
           INNER_EOF
