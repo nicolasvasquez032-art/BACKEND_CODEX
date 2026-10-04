@@ -1,7 +1,9 @@
 name: Fetch Backend Log
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   fetch-log:
@@ -19,4 +21,4 @@ jobs:
           ssh -i ~/.ssh/key.pem ${{ secrets.AWS_USERNAME }}@${{ secrets.AWS_HOST }} << 'INNER_EOF'
             tail -n 100 ~/BACKEND_CODEX/backend/backend.log
             exit
-INNER_EOF
+          INNER_EOF
