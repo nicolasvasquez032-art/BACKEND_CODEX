@@ -18,7 +18,7 @@ from application.use_cases.postularse_a_vacante import (
     PostularseAVacanteCommand,
     PostularseAVacanteUseCase,
 )
-from domain.entities.user import User
+from domain.entities.user import User, UserRole
 from domain.exceptions import (
     DuplicatePostulacionError,
     InvalidEstadoTransitionError,
@@ -30,6 +30,7 @@ from infrastructure.adapters.persistence.database import get_session
 from infrastructure.adapters.persistence.postulacion_repository import (
     SqlAlchemyPostulacionRepository,
 )
+from infrastructure.adapters.persistence.user_repository import SqlAlchemyUserRepository
 from infrastructure.adapters.persistence.vacante_repository import SqlAlchemyVacanteRepository
 from infrastructure.api.dependencies import get_current_user
 from infrastructure.api.schemas.postulaciones import (
@@ -58,7 +59,19 @@ async def postularse(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> PostulacionResponse:
-    """Postula un candidato a una vacante activa (RF-03.1 y RF-03.2)."""
+    """Postula un candidato a una vacante activa (RF-03.1 y RF-03.2).
+
+    El candidato_id se resuelve desde el JWT — el body solo necesita vacante_id.
+    """
+    # Resolver el profile_id del candidato autenticado desde la BD
+    user_repo = SqlAlchemyUserRepository(session)
+    profile = await user_repo.get_candidate_profile_by_user_id(current_user.id)
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Perfil de candidato no encontrado para el usuario autenticado",
+        )
+
     postulaciones_repo = SqlAlchemyPostulacionRepository(session)
     vacantes_repo = SqlAlchemyVacanteRepository(session)
     use_case = PostularseAVacanteUseCase(postulaciones_repo, vacantes_repo)
@@ -66,7 +79,7 @@ async def postularse(
     try:
         postulacion = await use_case.execute(
             PostularseAVacanteCommand(
-                candidato_id=request.candidato_id,
+                candidato_id=profile.id,   # ← siempre del JWT, nunca del body
                 vacante_id=request.vacante_id,
             )
         )
@@ -197,14 +210,25 @@ async def eliminar_postulacion(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> None:
-    """Elimina una postulación (retirarse de una vacante)."""
+    """Elimina una postulación (retirarse de una vacante).
+
+    Solo el candidato dueño de la postulación puede eliminarla.
+    """
     repo = SqlAlchemyPostulacionRepository(session)
     postulacion = await repo.find_by_id(postulacion_id)
     if not postulacion:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Postulación no encontrada")
-    
-    # La validación de seguridad requeriría buscar el perfil del usuario.
-    # Por ahora permitimos eliminar si la postulación existe.
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Postulación no encontrada"
+        )
+
+    # Verificar que el candidato autenticado es el dueño de la postulación
+    user_repo = SqlAlchemyUserRepository(session)
+    profile = await user_repo.get_candidate_profile_by_user_id(current_user.id)
+    if profile is None or postulacion.candidato_id != profile.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo el candidato dueño puede retirar esta postulación",
+        )
+
     await repo.delete(postulacion_id)
     await session.commit()

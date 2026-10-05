@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     # URL base del frontend (para enlaces de reset de contraseña)
     frontend_url: str = Field(default="http://localhost:3000")
 
+    # Mercado Pago
+    mp_access_token: str = Field(default="")
+    mp_back_url_base: str = Field(default="http://localhost:3000")
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 

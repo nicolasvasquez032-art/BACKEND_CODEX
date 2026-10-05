@@ -7,8 +7,7 @@ from domain.entities.postulacion import PostulacionEstado
 
 
 class PostularseRequest(BaseModel):
-    candidato_id: UUID   # ID de perfiles_candidato del candidato autenticado
-    vacante_id: UUID
+    vacante_id: UUID   # candidato_id se extrae del JWT automáticamente
 
 
 class CambiarEstadoPostulacionRequest(BaseModel):
