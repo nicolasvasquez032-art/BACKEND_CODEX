@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = Field(default="HS256")
     jwt_access_token_expire_minutes: int = Field(default=60)
     ml_service_url: str = Field(default="http://localhost:8001")
+    
+    # Security Configurations
+    environment: str = Field(default="development")
+    cors_origins: str = Field(default="*")
 
     # SMTP / Email
     smtp_host: str = Field(default="localhost")

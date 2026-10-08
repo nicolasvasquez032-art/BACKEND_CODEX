@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from loguru import logger
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,6 +26,7 @@ from infrastructure.adapters.email.smtp_email_service import SmtpEmailService
 from infrastructure.adapters.persistence.database import get_session
 from infrastructure.adapters.persistence.user_repository import SqlAlchemyUserRepository
 from infrastructure.adapters.security import JwtTokenService, PasslibPasswordHasher
+from infrastructure.api.rate_limiter import limiter
 from infrastructure.api.schemas.auth import (
     CandidateRegisterRequest,
     CandidateRegisterResponse,
@@ -45,8 +47,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
     response_model=CandidateRegisterResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit("5/minute")
 async def register_candidate(
-    request: CandidateRegisterRequest,
+    request: Request,
+    payload: CandidateRegisterRequest,
     session: AsyncSession = Depends(get_session),
 ) -> CandidateRegisterResponse:
     users = SqlAlchemyUserRepository(session)
@@ -55,13 +59,13 @@ async def register_candidate(
     try:
         profile = await use_case.execute(
             RegisterCandidateCommand(
-                email=request.email,
-                password=request.password,
-                full_name=request.full_name,
-                skills=request.skills,
-                experience_years=request.experience_years,
-                location=request.location,
-                education=request.education,
+                email=payload.email,
+                password=payload.password,
+                full_name=payload.full_name,
+                skills=payload.skills,
+                experience_years=payload.experience_years,
+                location=payload.location,
+                education=payload.education,
             )
         )
         await session.commit()
@@ -88,8 +92,10 @@ async def register_candidate(
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit("5/minute")
 async def register_company(
-    request: CompanyRegisterRequest,
+    request: Request,
+    payload: CompanyRegisterRequest,
     session: AsyncSession = Depends(get_session),
 ) -> UserResponse:
     users = SqlAlchemyUserRepository(session)
@@ -97,7 +103,7 @@ async def register_company(
 
     try:
         user = await use_case.execute(
-            RegisterCompanyCommand(email=request.email, password=request.password)
+            RegisterCompanyCommand(email=payload.email, password=payload.password)
         )
         await session.commit()
     except (EmailAlreadyRegisteredError, IntegrityError) as exc:
@@ -111,8 +117,10 @@ async def register_company(
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("5/minute")
 async def login(
-    request: LoginRequest,
+    request: Request,
+    payload: LoginRequest,
     session: AsyncSession = Depends(get_session),
 ) -> TokenResponse:
     users = SqlAlchemyUserRepository(session)
@@ -120,9 +128,11 @@ async def login(
 
     try:
         result = await use_case.execute(
-            LoginUserCommand(email=request.email, password=request.password)
+            LoginUserCommand(email=payload.email, password=payload.password)
         )
+        logger.info(f"Successful login for user: {payload.email}")
     except InvalidCredentialsError as exc:
+        logger.warning(f"Failed login attempt for email: {payload.email} - Invalid credentials")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
@@ -132,8 +142,10 @@ async def login(
 
 
 @router.post("/recuperar-password", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("3/minute")
 async def request_password_reset(
-    request: RequestPasswordResetRequest,
+    request: Request,
+    payload: RequestPasswordResetRequest,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Solicita el envío de un enlace de recuperación de contraseña por correo.
@@ -144,7 +156,7 @@ async def request_password_reset(
     use_case = RequestPasswordResetUseCase(users, SmtpEmailService())
     await use_case.execute(
         RequestPasswordResetCommand(
-            email=request.email,
+            email=payload.email,
             frontend_url=settings.frontend_url,
         )
     )
@@ -153,8 +165,10 @@ async def request_password_reset(
 
 
 @router.post("/confirmar-reset", status_code=status.HTTP_200_OK)
+@limiter.limit("5/minute")
 async def confirm_password_reset(
-    request: ConfirmPasswordResetRequest,
+    request: Request,
+    payload: ConfirmPasswordResetRequest,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Confirma el reset de contraseña usando el token recibido por correo."""
@@ -164,8 +178,8 @@ async def confirm_password_reset(
     try:
         await use_case.execute(
             ConfirmPasswordResetCommand(
-                raw_token=request.token,
-                new_password=request.new_password,
+                raw_token=payload.token,
+                new_password=payload.new_password,
             )
         )
         await session.commit()

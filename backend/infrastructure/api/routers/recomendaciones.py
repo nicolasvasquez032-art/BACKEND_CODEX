@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from application.use_cases.get_recomendaciones import GetRecomendacionesUseCase
 from domain.entities.user import User, UserRole
 from infrastructure.adapters.ml_client.http_ml_service import HttpMlServiceAdapter
-from infrastructure.api.dependencies import get_current_user
+from infrastructure.api.dependencies import get_current_user, require_role
 from infrastructure.config import settings
 
 router = APIRouter(prefix="/recomendaciones", tags=["recomendaciones"])
@@ -23,16 +23,9 @@ class RecomendacionResponse(BaseModel):
 @router.get("/candidato/{candidato_id}", response_model=list[RecomendacionResponse])
 async def obtener_recomendaciones(
     candidato_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role(UserRole.CANDIDATE)),
 ) -> list[RecomendacionResponse]:
     """Obtiene vacantes recomendadas para un candidato (RF-04)."""
-    
-    # Solo el propio candidato puede ver sus recomendaciones
-    if current_user.role != UserRole.CANDIDATE:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo los candidatos pueden recibir recomendaciones"
-        )
         
     ml_adapter = HttpMlServiceAdapter(settings.ml_service_url)
     use_case = GetRecomendacionesUseCase(ml_adapter)

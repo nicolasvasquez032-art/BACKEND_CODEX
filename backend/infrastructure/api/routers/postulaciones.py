@@ -32,7 +32,7 @@ from infrastructure.adapters.persistence.postulacion_repository import (
 )
 from infrastructure.adapters.persistence.user_repository import SqlAlchemyUserRepository
 from infrastructure.adapters.persistence.vacante_repository import SqlAlchemyVacanteRepository
-from infrastructure.api.dependencies import get_current_user
+from infrastructure.api.dependencies import get_current_user, require_role
 from infrastructure.api.schemas.postulaciones import (
     CambiarEstadoPostulacionRequest,
     PostulacionResponse,
@@ -56,7 +56,7 @@ def _to_response(p) -> PostulacionResponse:
 @router.post("", response_model=PostulacionResponse, status_code=status.HTTP_201_CREATED)
 async def postularse(
     request: PostularseRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role(UserRole.CANDIDATE)),
     session: AsyncSession = Depends(get_session),
 ) -> PostulacionResponse:
     """Postula un candidato a una vacante activa (RF-03.1 y RF-03.2).
@@ -136,7 +136,7 @@ async def listar_postulaciones_candidato(
 @router.get("/vacante/{vacante_id}", response_model=list[PostulacionResponse])
 async def listar_postulaciones_vacante(
     vacante_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role(UserRole.COMPANY)),
     session: AsyncSession = Depends(get_session),
 ) -> list[PostulacionResponse]:
     """Retorna las postulaciones de una vacante para el kanban de la empresa (RF-03.3)."""
@@ -163,7 +163,7 @@ async def listar_postulaciones_vacante(
 async def cambiar_estado_postulacion(
     postulacion_id: UUID,
     request: CambiarEstadoPostulacionRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role(UserRole.COMPANY)),
     session: AsyncSession = Depends(get_session),
 ) -> PostulacionResponse:
     """Avanza el estado de una postulación en el kanban (RF-03.3)."""
@@ -207,7 +207,7 @@ async def cambiar_estado_postulacion(
 @router.delete("/{postulacion_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def eliminar_postulacion(
     postulacion_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role(UserRole.CANDIDATE)),
     session: AsyncSession = Depends(get_session),
 ) -> None:
     """Elimina una postulación (retirarse de una vacante).

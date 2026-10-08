@@ -24,7 +24,7 @@ from infrastructure.adapters.persistence.notificacion_repository import (
     SqlAlchemyNotificacionRepository,
 )
 from infrastructure.adapters.persistence.vacante_repository import SqlAlchemyVacanteRepository
-from infrastructure.api.dependencies import get_current_user
+from infrastructure.api.dependencies import get_current_user, require_role
 from infrastructure.api.schemas.vacantes import (
     ActualizarVacanteRequest,
     CambiarEstadoVacanteRequest,
@@ -74,15 +74,10 @@ async def listar_vacantes(
 @router.post("", response_model=VacanteResponse, status_code=status.HTTP_201_CREATED)
 async def publicar_vacante(
     request: PublicarVacanteRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role(UserRole.COMPANY)),
     session: AsyncSession = Depends(get_session),
 ) -> VacanteResponse:
     """Publica una nueva vacante. Solo para empresas."""
-    if current_user.role != UserRole.COMPANY:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo las empresas pueden publicar vacantes",
-        )
 
     repo = SqlAlchemyVacanteRepository(session)
     ml_service = HttpMlServiceAdapter(settings.ml_service_url)
@@ -121,7 +116,7 @@ async def publicar_vacante(
 async def actualizar_vacante(
     vacante_id: UUID,
     request: ActualizarVacanteRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role(UserRole.COMPANY)),
     session: AsyncSession = Depends(get_session),
 ) -> VacanteResponse:
     """Actualiza los datos de una vacante. Solo la empresa dueña."""
@@ -164,7 +159,7 @@ async def actualizar_vacante(
 async def cambiar_estado_vacante(
     vacante_id: UUID,
     request: CambiarEstadoVacanteRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role(UserRole.COMPANY)),
     session: AsyncSession = Depends(get_session),
 ) -> VacanteResponse:
     """Cambia el estado de una vacante (activa/pausada/cerrada). Solo la empresa dueña."""
@@ -199,7 +194,7 @@ async def cambiar_estado_vacante(
 @router.delete("/{vacante_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def eliminar_vacante(
     vacante_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role(UserRole.COMPANY)),
     session: AsyncSession = Depends(get_session),
 ) -> None:
     """Elimina una vacante. Solo la empresa dueña."""
