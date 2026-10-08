@@ -46,18 +46,25 @@ jobs:
                 sudo sh get-docker.sh
             fi
             
-            # 1. Descargar la nueva imagen compilada
+            # 0.5 Limpiar espacio agresivamente en el servidor Ubuntu (Cachés, logs antiguos)
+            sudo apt-get clean
+            sudo journalctl --vacuum-time=1d || true
+            rm -rf ~/.cache/pip || true
+            
+            # 1. Limpiar imágenes de Docker huérfanas
+            sudo docker system prune -af
+            
+            # 2. Descargar la nueva imagen compilada
             sudo docker pull ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:latest
             
-            # 2. Asegurarse de que exista el archivo .env
+            # 3. Asegurarse de que exista el archivo .env
             cd ~/BACKEND_CODEX/backend || mkdir -p ~/BACKEND_CODEX/backend
             touch .env
             
-            # 3. Ejecutar migraciones de BD usando la imagen oficial
+            # 4. Ejecutar migraciones de BD usando la imagen oficial
             sudo docker run --rm --network host --env-file .env ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:latest alembic upgrade head
             
-            # 4. Limpiar espacio en disco (muy importante porque EC2 tiene 8GB)
-            sudo docker system prune -af
+            # 5. Detener el contenedor actual si existe
             sudo docker stop talentmatch-backend-prod || true
             sudo docker rm talentmatch-backend-prod || true
             
