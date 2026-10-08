@@ -38,23 +38,31 @@ jobs:
 
       - name: Deploy and Restart Server
         run: |
-          ssh -i ~/.ssh/key.pem ${{ secrets.AWS_USERNAME }}@${{ secrets.AWS_HOST }} << 'EOF'
-            # 1. Descargar la nueva imagen compilada (Cumplimiento Factor 5: Separación de Build y Run)
-            docker pull ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:latest
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/key.pem ${{ secrets.AWS_USERNAME }}@${{ secrets.AWS_HOST }} << 'EOF'
+            # 0. Instalar Docker automáticamente si no existe en el servidor
+            if ! command -v docker &> /dev/null; then
+                echo "Instalando Docker en el servidor EC2..."
+                curl -fsSL https://get.docker.com -o get-docker.sh
+                sudo sh get-docker.sh
+            fi
+            
+            # 1. Descargar la nueva imagen compilada
+            sudo docker pull ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:latest
             
             # 2. Asegurarse de que exista el archivo .env
             cd ~/BACKEND_CODEX/backend || mkdir -p ~/BACKEND_CODEX/backend
             touch .env
             
             # 3. Ejecutar migraciones de BD usando la imagen oficial
-            docker run --rm --network host --env-file .env ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:latest alembic upgrade head
+            sudo docker run --rm --network host --env-file .env ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:latest alembic upgrade head
             
-            # 4. Detener el contenedor actual si existe
-            docker stop talentmatch-backend-prod || true
-            docker rm talentmatch-backend-prod || true
+            # 4. Limpiar espacio en disco (muy importante porque EC2 tiene 8GB)
+            sudo docker system prune -af
+            sudo docker stop talentmatch-backend-prod || true
+            sudo docker rm talentmatch-backend-prod || true
             
             # 5. Levantar el nuevo servidor
-            docker run -d \
+            sudo docker run -d \
               --name talentmatch-backend-prod \
               --restart unless-stopped \
               --network host \
