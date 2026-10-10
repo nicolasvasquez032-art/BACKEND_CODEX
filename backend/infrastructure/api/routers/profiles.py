@@ -186,8 +186,30 @@ async def upload_cv(
             detail="Solo los candidatos pueden subir su CV",
         )
 
+    # 🛡️ VALIDACIÓN DE SEGURIDAD OWASP (MIME Type)
+    ALLOWED_MIMES = {"application/pdf", "image/jpeg", "image/png", "image/webp"}
+    if file.content_type not in ALLOWED_MIMES:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Formato de archivo peligroso o no permitido: {file.content_type}. Solo se aceptan PDF o Imágenes.",
+        )
+
     file_bytes = await file.read()
-    mime_type = file.content_type or "application/octet-stream"
+    
+    # 🛡️ PREVENCIÓN DoS (Límite de tamaño: 5MB)
+    if len(file_bytes) > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="El archivo excede el límite de 5MB.",
+        )
+
+    mime_type = file.content_type
+    
+    # 💡 LÓGICA DE ALMACENAMIENTO SEGURO (MOCK PARA SUSTENTACIÓN)
+    # En producción real, no se guarda en el disco local de EC2.
+    # Se usaría boto3 para subir file_bytes a un Amazon S3 Bucket:
+    # s3_client = boto3.client('s3')
+    # s3_client.put_object(Bucket='talentmatch-cvs', Key=f"{profile_id}.pdf", Body=file_bytes)
 
     repo = SqlAlchemyUserRepository(session)
     ml_service = HttpMlServiceAdapter(settings.ml_service_url)
