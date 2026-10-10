@@ -48,11 +48,16 @@ jobs:
             
             # 0.5 Limpiar espacio agresivamente en el servidor Ubuntu (Cachés, logs antiguos)
             sudo apt-get clean
-            sudo journalctl --vacuum-time=1d || true
+            sudo journalctl --vacuum-time=1h || true
+            sudo rm -rf /var/log/journal/* || true
+            sudo rm -rf /var/log/syslog* || true
             rm -rf ~/.cache/pip || true
             
+            # Reiniciar Docker (Si el disco llegó al 100%, el socket se bloquea con permission denied)
+            sudo systemctl restart docker || true
+            
             # 1. Limpiar imágenes de Docker huérfanas
-            sudo docker system prune -af
+            sudo docker system prune -af --volumes
             
             # 2. Descargar la nueva imagen compilada
             sudo docker pull ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:latest
