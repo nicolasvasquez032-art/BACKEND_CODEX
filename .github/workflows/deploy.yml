@@ -69,9 +69,10 @@ jobs:
             # 4. Ejecutar migraciones de BD usando la imagen oficial
             sudo docker run --rm --network host --env-file .env ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:latest alembic upgrade head
             
-            # 5. Detener el contenedor actual si existe
+            # 5. Detener el contenedor actual si existe y liberar puerto 8000
             sudo docker stop talentmatch-backend-prod || true
             sudo docker rm talentmatch-backend-prod || true
+            sudo fuser -k 8000/tcp || true
             
             # 5. Levantar el nuevo servidor
             sudo docker run -d \
