@@ -12,13 +12,17 @@ Requires-Dist: passlib[bcrypt]>=1.7.4
 Requires-Dist: pydantic-settings>=2.4.0
 Requires-Dist: python-jose[cryptography]>=3.3.0
 Requires-Dist: python-multipart>=0.0.9
-Requires-Dist: sqlalchemy>=2.0.32
+Requires-Dist: sqlalchemy[asyncio]>=2.0.32
 Requires-Dist: pgvector>=0.3.0
 Requires-Dist: uvicorn[standard]>=0.30.6
 Requires-Dist: aiosmtplib>=3.0
 Requires-Dist: pdfplumber>=0.11
 Requires-Dist: Pillow>=10.0
 Requires-Dist: pytesseract>=0.3.10
+Requires-Dist: firebase-admin>=6.5.0
+Requires-Dist: mercadopago>=2.2.0
+Requires-Dist: slowapi>=0.1.9
+Requires-Dist: loguru>=0.7.2
 Provides-Extra: dev
 Requires-Dist: httpx>=0.27.2; extra == "dev"
 Requires-Dist: pytest>=8.3.2; extra == "dev"

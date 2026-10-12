@@ -16,6 +16,7 @@ application/use_cases/actualizar_vacante.py
 application/use_cases/cambiar_estado_postulacion.py
 application/use_cases/cambiar_estado_vacante.py
 application/use_cases/confirm_password_reset.py
+application/use_cases/eliminar_vacante.py
 application/use_cases/get_admin_metrics.py
 application/use_cases/get_candidate_profile.py
 application/use_cases/get_notificaciones.py
@@ -44,6 +45,7 @@ domain/entities/user.py
 domain/entities/vacante.py
 infrastructure/__init__.py
 infrastructure/config.py
+infrastructure/logger.py
 infrastructure/adapters/__init__.py
 infrastructure/adapters/fcm_adapter.py
 infrastructure/adapters/cv_parser/__init__.py
@@ -67,11 +69,15 @@ infrastructure/adapters/security/passlib_password_hasher.py
 infrastructure/api/__init__.py
 infrastructure/api/app.py
 infrastructure/api/dependencies.py
+infrastructure/api/rate_limiter.py
+infrastructure/api/websockets_manager.py
 infrastructure/api/routers/__init__.py
 infrastructure/api/routers/admin.py
 infrastructure/api/routers/auth.py
+infrastructure/api/routers/chat.py
 infrastructure/api/routers/health.py
 infrastructure/api/routers/notificaciones.py
+infrastructure/api/routers/pagos.py
 infrastructure/api/routers/postulaciones.py
 infrastructure/api/routers/profiles.py
 infrastructure/api/routers/recomendaciones.py
@@ -81,6 +87,8 @@ infrastructure/api/schemas/auth.py
 infrastructure/api/schemas/postulaciones.py
 infrastructure/api/schemas/profiles.py
 infrastructure/api/schemas/vacantes.py
+infrastructure/api/templates/__init__.py
+infrastructure/api/templates/reset_password_html.py
 talentmatch_backend.egg-info/PKG-INFO
 talentmatch_backend.egg-info/SOURCES.txt
 talentmatch_backend.egg-info/dependency_links.txt

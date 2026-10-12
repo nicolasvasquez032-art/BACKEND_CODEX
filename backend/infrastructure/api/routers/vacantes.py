@@ -1,9 +1,10 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from application.services.i18n_service import I18nService
 from application.use_cases.actualizar_vacante import (
     ActualizarVacanteCommand,
     ActualizarVacanteUseCase,
@@ -36,16 +37,24 @@ from infrastructure.config import settings
 router = APIRouter(prefix="/vacantes", tags=["vacantes"])
 
 
-def _to_response(vacante) -> VacanteResponse:
+def _to_response(vacante, lang: str | None = None) -> VacanteResponse:
+    localized = I18nService.translate_vacante_fields(
+        titulo=vacante.titulo,
+        descripcion=vacante.descripcion,
+        requisitos=vacante.requisitos or [],
+        ubicacion=vacante.ubicacion,
+        categoria=vacante.categoria,
+        lang=lang,
+    )
     return VacanteResponse(
         id=vacante.id,
         empresa_id=vacante.empresa_id,
-        titulo=vacante.titulo,
-        descripcion=vacante.descripcion,
-        requisitos=vacante.requisitos,
-        ubicacion=vacante.ubicacion,
+        titulo=localized["titulo"],
+        descripcion=localized["descripcion"],
+        requisitos=localized["requisitos"],
+        ubicacion=localized["ubicacion"],
         estado=vacante.estado,
-        categoria=vacante.categoria,
+        categoria=localized["categoria"],
         salario_min=vacante.salario_min,
         salario_max=vacante.salario_max,
         latitud=vacante.latitud,
@@ -56,24 +65,45 @@ def _to_response(vacante) -> VacanteResponse:
 
 @router.get("", response_model=list[VacanteResponse])
 async def listar_vacantes(
+    request: Request,
     ubicacion: str | None = Query(default=None, max_length=180),
     categoria: str | None = Query(default=None, max_length=100),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
 ) -> list[VacanteResponse]:
-    """Lista vacantes activas. Endpoint público (no requiere autenticación)."""
+    """Lista vacantes activas. Soporta traducción vía encabezado Accept-Language."""
     repo = SqlAlchemyVacanteRepository(session)
     use_case = ListarVacantesUseCase(repo)
     vacantes = await use_case.execute(
         ListarVacantesQuery(ubicacion=ubicacion, categoria=categoria, offset=offset, limit=limit)
     )
-    return [_to_response(v) for v in vacantes]
+    lang = request.headers.get("accept-language")
+    return [_to_response(v, lang=lang) for v in vacantes]
+
+
+@router.get("/{vacante_id}", response_model=VacanteResponse)
+async def obtener_vacante(
+    vacante_id: UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> VacanteResponse:
+    """Obtiene el detalle de una vacante por ID. Soporta traducción vía Accept-Language."""
+    repo = SqlAlchemyVacanteRepository(session)
+    vacante = await repo.find_by_id(vacante_id)
+    lang = request.headers.get("accept-language")
+    if not vacante:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=I18nService.translate_error("Vacante no encontrada", lang=lang),
+        )
+    return _to_response(vacante, lang=lang)
 
 
 @router.post("", response_model=VacanteResponse, status_code=status.HTTP_201_CREATED)
 async def publicar_vacante(
     request: PublicarVacanteRequest,
+    http_request: Request,
     current_user: User = Depends(require_role(UserRole.COMPANY)),
     session: AsyncSession = Depends(get_session),
 ) -> VacanteResponse:
@@ -83,6 +113,7 @@ async def publicar_vacante(
     ml_service = HttpMlServiceAdapter(settings.ml_service_url)
     notificacion_repo = SqlAlchemyNotificacionRepository(session)
     push_port = RealFcmAdapter()
+    lang = http_request.headers.get("accept-language")
     
     use_case = PublicarVacanteUseCase(repo, ml_service, notificacion_repo, push_port)
 
@@ -106,16 +137,17 @@ async def publicar_vacante(
         await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error al guardar la vacante",
+            detail=I18nService.translate_error("Error al guardar la vacante", lang=lang),
         ) from exc
 
-    return _to_response(vacante)
+    return _to_response(vacante, lang=lang)
 
 
 @router.put("/{vacante_id}", response_model=VacanteResponse)
 async def actualizar_vacante(
     vacante_id: UUID,
     request: ActualizarVacanteRequest,
+    http_request: Request,
     current_user: User = Depends(require_role(UserRole.COMPANY)),
     session: AsyncSession = Depends(get_session),
 ) -> VacanteResponse:
@@ -123,6 +155,7 @@ async def actualizar_vacante(
     repo = SqlAlchemyVacanteRepository(session)
     ml_service = HttpMlServiceAdapter(settings.ml_service_url)
     use_case = ActualizarVacanteUseCase(repo, ml_service)
+    lang = http_request.headers.get("accept-language")
 
     try:
         vacante = await use_case.execute(
@@ -141,30 +174,38 @@ async def actualizar_vacante(
         await session.commit()
     except VacanteNotFoundError:
         await session.rollback()
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacante no encontrada")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=I18nService.translate_error("Vacante no encontrada", lang=lang),
+        )
     except PermissionDeniedError:
         await session.rollback()
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=I18nService.translate_error("Acceso denegado", lang=lang),
+        )
     except SQLAlchemyError as exc:
         await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error al actualizar la vacante",
+            detail=I18nService.translate_error("Error al actualizar la vacante", lang=lang),
         ) from exc
 
-    return _to_response(vacante)
+    return _to_response(vacante, lang=lang)
 
 
 @router.patch("/{vacante_id}/estado", response_model=VacanteResponse)
 async def cambiar_estado_vacante(
     vacante_id: UUID,
     request: CambiarEstadoVacanteRequest,
+    http_request: Request,
     current_user: User = Depends(require_role(UserRole.COMPANY)),
     session: AsyncSession = Depends(get_session),
 ) -> VacanteResponse:
     """Cambia el estado de una vacante (activa/pausada/cerrada). Solo la empresa dueña."""
     repo = SqlAlchemyVacanteRepository(session)
     use_case = CambiarEstadoVacanteUseCase(repo)
+    lang = http_request.headers.get("accept-language")
 
     try:
         vacante = await use_case.execute(
@@ -177,18 +218,24 @@ async def cambiar_estado_vacante(
         await session.commit()
     except VacanteNotFoundError:
         await session.rollback()
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacante no encontrada")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=I18nService.translate_error("Vacante no encontrada", lang=lang),
+        )
     except PermissionDeniedError:
         await session.rollback()
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=I18nService.translate_error("Acceso denegado", lang=lang),
+        )
     except SQLAlchemyError as exc:
         await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error al cambiar el estado",
+            detail=I18nService.translate_error("Error al cambiar el estado", lang=lang),
         ) from exc
 
-    return _to_response(vacante)
+    return _to_response(vacante, lang=lang)
 
 
 @router.delete("/{vacante_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -1,9 +1,11 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from loguru import logger
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+
+from application.services.i18n_service import I18nService
 
 from infrastructure.api.routers import (
     admin_router,
@@ -39,12 +41,27 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+        lang = request.headers.get("accept-language")
+        detail = exc.detail
+        if isinstance(detail, str):
+            detail = I18nService.translate_error(detail, lang=lang)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": detail},
+            headers=exc.headers,
+        )
+
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         logger.exception(f"Excepción no controlada en {request.method} {request.url.path}")
+        lang = request.headers.get("accept-language")
+        detail = "Ha ocurrido un error interno en el servidor. El equipo técnico ha sido notificado."
+        detail = I18nService.translate_error(detail, lang=lang)
         return JSONResponse(
             status_code=500,
-            content={"detail": "Ha ocurrido un error interno en el servidor. El equipo técnico ha sido notificado."},
+            content={"detail": detail},
         )
     
     app.add_middleware(

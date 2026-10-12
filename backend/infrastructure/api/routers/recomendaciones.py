@@ -1,8 +1,9 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
+from application.services.i18n_service import I18nService
 from application.use_cases.get_recomendaciones import GetRecomendacionesUseCase
 from domain.entities.user import User, UserRole
 from infrastructure.adapters.ml_client.http_ml_service import HttpMlServiceAdapter
@@ -23,28 +24,30 @@ class RecomendacionResponse(BaseModel):
 @router.get("/candidato/{candidato_id}", response_model=list[RecomendacionResponse])
 async def obtener_recomendaciones(
     candidato_id: UUID,
+    request: Request,
     current_user: User = Depends(require_role(UserRole.CANDIDATE)),
 ) -> list[RecomendacionResponse]:
-    """Obtiene vacantes recomendadas para un candidato (RF-04)."""
+    """Obtiene vacantes recomendadas para un candidato (RF-04). Soporta I18n."""
         
     ml_adapter = HttpMlServiceAdapter(settings.ml_service_url)
     use_case = GetRecomendacionesUseCase(ml_adapter)
+    lang = request.headers.get("accept-language")
     
     try:
         recomendaciones = await use_case.execute(candidato_id)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error obteniendo recomendaciones: {e!s}"
+            detail=I18nService.translate_error(f"Error obteniendo recomendaciones: {e!s}", lang=lang)
         )
 
     return [
         RecomendacionResponse(
             vacante_id=r.vacante_id,
-            titulo=r.titulo,
+            titulo=I18nService.translate_title(r.titulo, lang),
             empresa_id=r.empresa_id,
             score_similitud=r.score_similitud,
-            explicacion=r.explicacion
+            explicacion=I18nService.translate_recommendation_explanation(r.explicacion, lang)
         )
         for r in recomendaciones
     ]
