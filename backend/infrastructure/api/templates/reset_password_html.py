@@ -505,4 +505,9 @@ def render_reset_password_html(token: str) -> str:
   </script>
 </body>
 </html>"""
-    return html.replace("__TOKEN__", token)
+    import re
+
+    # Sanitizar estrictamente el token para prevenir XSS reflejado (CWE-79 / OWASP A03)
+    # Solo caracteres seguros URL-safe (letras, números, guión y guión bajo) son permitidos
+    safe_token = re.sub(r"[^A-Za-z0-9_-]", "", token)
+    return html.replace("__TOKEN__", safe_token)

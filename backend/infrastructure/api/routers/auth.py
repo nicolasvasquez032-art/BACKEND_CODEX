@@ -195,7 +195,11 @@ async def confirm_password_reset(
 
 
 @router.get("/reset-password", response_class=HTMLResponse)
-async def reset_password_page(token: str = Query(default="")) -> HTMLResponse:
+@limiter.limit("15/minute")
+async def reset_password_page(
+    request: Request,
+    token: str = Query(default="", max_length=128),
+) -> HTMLResponse:
     """Renderiza la página web oficial de TalentMatch para cambiar la contraseña con el token."""
     from infrastructure.api.templates.reset_password_html import render_reset_password_html
 
