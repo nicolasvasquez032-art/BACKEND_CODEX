@@ -153,4 +153,4 @@ jobs:
                 (crontab -l 2>/dev/null | grep -Fv "backup_db.sh" ; echo "\$CRON_CMD") | crontab -
                 echo "Cronjob de respaldo diario configurado exitosamente."
             fi
-EOF
+          EOF
