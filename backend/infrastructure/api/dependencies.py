@@ -61,7 +61,8 @@ async def get_current_user(
             algorithms=[settings.jwt_algorithm],
         )
         user_id_str: str | None = payload.get("sub")
-        if user_id_str is None:
+        token_type = payload.get("type")
+        if user_id_str is None or token_type == "refresh":
             raise credentials_exception
         user_id = UUID(user_id_str)
     except (JWTError, ValueError):

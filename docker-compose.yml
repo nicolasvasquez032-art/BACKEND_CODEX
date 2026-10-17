@@ -1,58 +1,174 @@
+# ==============================================================================
+# Docker Compose - TalentMatch Solution Stack
+# Actividad: R2-A4-S8 - Modelado UML y Contenerización de la Solución
+# Servicios:
+#   1. postgres   - PostgreSQL 16 con extensión pgvector para embeddings de IA
+#   2. ml_service - Microservicio FastAPI de IA (sentence-transformers)
+#   3. backend    - API REST Principal FastAPI (Clean Architecture + DDD)
+#   4. pgadmin    - Interfaz gráfica de administración para PostgreSQL
+#   5. frontend   - (Opcional - Perfil 'fullstack') Frontend Web Flutter con Nginx
+# ==============================================================================
+
 services:
+  # ----------------------------------------------------------------------------
+  # Servicio 1: Base de Datos Relacional y Vectorial
+  # ----------------------------------------------------------------------------
   postgres:
     image: pgvector/pgvector:pg16
+    container_name: talentmatch-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: talentmatch
-      POSTGRES_USER: talentmatch
-      POSTGRES_PASSWORD: talentmatch
+      POSTGRES_DB: ${POSTGRES_DB:-talentmatch}
+      POSTGRES_USER: ${POSTGRES_USER:-talentmatch}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-talentmatch}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U talentmatch -d talentmatch"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-talentmatch} -d ${POSTGRES_DB:-talentmatch}"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 5
+      start_period: 5s
+    networks:
+      - talentmatch_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
+  # ----------------------------------------------------------------------------
+  # Servicio 2: Microservicio de Inteligencia Artificial (ML & NLP)
+  # ----------------------------------------------------------------------------
+  ml_service:
+    build:
+      context: ./ml_service
+      dockerfile: Dockerfile
+    container_name: talentmatch-ml-service
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-talentmatch}:${POSTGRES_PASSWORD:-talentmatch}@postgres:5432/${POSTGRES_DB:-talentmatch}
+      EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-sentence-transformers/all-MiniLM-L6-v2}
+      WORKERS: ${ML_WORKERS:-1}
+    ports:
+      - "${ML_SERVICE_PORT:-8001}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - talentmatch_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ----------------------------------------------------------------------------
+  # Servicio 3: Backend API REST Principal
+  # ----------------------------------------------------------------------------
   backend:
     build:
       context: ./backend
+      dockerfile: Dockerfile
+    container_name: talentmatch-backend
+    restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+asyncpg://talentmatch:talentmatch@postgres:5432/talentmatch
-      JWT_SECRET_KEY: change-me-in-development
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-talentmatch}:${POSTGRES_PASSWORD:-talentmatch}@postgres:5432/${POSTGRES_DB:-talentmatch}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-development}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-60}
       ML_SERVICE_URL: http://ml_service:8000
+      REDIS_URL: ${REDIS_URL:-}
+      WORKERS: ${BACKEND_WORKERS:-1}
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
       ml_service:
-        condition: service_started
-
-  ml_service:
-    build:
-      context: ./ml_service
-    environment:
-      DATABASE_URL: postgresql+asyncpg://talentmatch:talentmatch@postgres:5432/talentmatch
-      EMBEDDING_MODEL_NAME: sentence-transformers/all-MiniLM-L6-v2
-    ports:
-      - "8001:8000"
-    depends_on:
-      postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - talentmatch_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
+  # ----------------------------------------------------------------------------
+  # Servicio 4: Administrador de Base de Datos pgAdmin
+  # ----------------------------------------------------------------------------
   pgadmin:
-    image: dpage/pgadmin4
+    image: dpage/pgadmin4:latest
+    container_name: talentmatch-pgadmin
+    restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@admin.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
     ports:
-      - "5050:80"
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - talentmatch_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
+  # ----------------------------------------------------------------------------
+  # Servicio 5 (Opcional): Frontend Flutter Web (Perfil 'fullstack')
+  # ----------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ../FRONTEND_CODEX
+      dockerfile: Dockerfile
+    container_name: talentmatch-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    networks:
+      - talentmatch_network
+    profiles:
+      - fullstack
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ==============================================================================
+# Volúmenes Persistentes
+# ==============================================================================
 volumes:
   postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
 
+# ==============================================================================
+# Redes Aisladas
+# ==============================================================================
+networks:
+  talentmatch_network:
+    driver: bridge

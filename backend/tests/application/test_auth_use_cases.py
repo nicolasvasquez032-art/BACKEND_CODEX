@@ -25,6 +25,9 @@ class FakeTokenService:
     def create_access_token(self, user: User) -> str:
         return f"token-for:{user.id}"
 
+    def create_refresh_token(self, user: User) -> str:
+        return f"refresh-for:{user.id}"
+
 
 class FakeUserRepository:
     def __init__(self) -> None:

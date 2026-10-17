@@ -16,6 +16,7 @@ class LoginUserCommand:
 class LoginResult:
     access_token: str
     token_type: str = "bearer"
+    refresh_token: str | None = None
 
 
 class LoginUserUseCase:
@@ -34,5 +35,14 @@ class LoginUserUseCase:
         if user is None or not self._password_hasher.verify(command.password, user.password_hash):
             raise InvalidCredentialsError("Invalid email or password")
 
-        return LoginResult(access_token=self._token_service.create_access_token(user))
+        refresh_token = (
+            self._token_service.create_refresh_token(user)
+            if hasattr(self._token_service, "create_refresh_token")
+            else None
+        )
+        return LoginResult(
+            access_token=self._token_service.create_access_token(user),
+            token_type="bearer",
+            refresh_token=refresh_token,
+        )
 

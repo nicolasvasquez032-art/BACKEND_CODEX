@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from uuid import UUID
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse
 from loguru import logger
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from application.ports.email_service import EmailServicePort
 from application.use_cases.confirm_password_reset import (
     ConfirmPasswordResetCommand,
     ConfirmPasswordResetUseCase,
@@ -34,6 +37,7 @@ from infrastructure.api.schemas.auth import (
     CompanyRegisterRequest,
     ConfirmPasswordResetRequest,
     LoginRequest,
+    RefreshTokenRequest,
     RequestPasswordResetRequest,
     TokenResponse,
     UserResponse,
@@ -41,6 +45,24 @@ from infrastructure.api.schemas.auth import (
 from infrastructure.config import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+class BackgroundEmailServiceAdapter:
+    """Adaptador que desacopla el envío SMTP hacia una BackgroundTask no bloqueante."""
+
+    def __init__(self, background_tasks: BackgroundTasks, email_service: EmailServicePort):
+        self._bg = background_tasks
+        self._email_service = email_service
+
+    async def send_password_reset(self, to_email: str, reset_link: str) -> None:
+        self._bg.add_task(self._send_email_task, to_email, reset_link)
+
+    async def _send_email_task(self, to_email: str, reset_link: str) -> None:
+        try:
+            await self._email_service.send_password_reset(to_email, reset_link)
+            logger.info(f"Correo de recuperación enviado exitosamente en background a {to_email}")
+        except Exception as exc:
+            logger.error(f"Fallo al enviar correo en background a {to_email}: {exc}")
 
 
 @router.post(
@@ -139,7 +161,58 @@ async def login(
             detail="Invalid email or password",
         ) from exc
 
-    return TokenResponse(access_token=result.access_token, token_type=result.token_type)
+    return TokenResponse(
+        access_token=result.access_token,
+        token_type=result.token_type,
+        refresh_token=result.refresh_token,
+    )
+
+
+@router.post("/refresh", response_model=TokenResponse)
+@limiter.limit("10/minute")
+async def refresh_access_token(
+    request: Request,
+    payload: RefreshTokenRequest,
+    session: AsyncSession = Depends(get_session),
+) -> TokenResponse:
+    """Permite renovar el access_token usando un refresh_token válido (vigencia de 7 días)."""
+    token_service = JwtTokenService()
+    try:
+        decoded = token_service.decode_token(payload.refresh_token)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token de actualización inválido o expirado",
+        ) from exc
+
+    if decoded.get("type") != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="El token proporcionado no es un refresh token válido",
+        )
+
+    user_id_str = decoded.get("sub")
+    if not user_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido",
+        )
+
+    users = SqlAlchemyUserRepository(session)
+    user = await users.find_by_id(UUID(user_id_str))
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuario no encontrado o inactivo",
+        )
+
+    new_access_token = token_service.create_access_token(user)
+    new_refresh_token = token_service.create_refresh_token(user)
+    return TokenResponse(
+        access_token=new_access_token,
+        token_type="bearer",
+        refresh_token=new_refresh_token,
+    )
 
 
 @router.post("/recuperar-password", status_code=status.HTTP_202_ACCEPTED)
@@ -147,14 +220,17 @@ async def login(
 async def request_password_reset(
     request: Request,
     payload: RequestPasswordResetRequest,
+    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Solicita el envío de un enlace de recuperación de contraseña por correo.
 
-    Siempre responde 202 para no revelar si el email existe en el sistema.
+    El envío del correo se despacha en segundo plano (BackgroundTasks) para responder
+    de forma inmediata al usuario (202 Accepted) sin bloquear por el handshake SMTP.
     """
     users = SqlAlchemyUserRepository(session)
-    use_case = RequestPasswordResetUseCase(users, SmtpEmailService())
+    email_service = BackgroundEmailServiceAdapter(background_tasks, SmtpEmailService())
+    use_case = RequestPasswordResetUseCase(users, email_service)
     await use_case.execute(
         RequestPasswordResetCommand(
             email=payload.email,

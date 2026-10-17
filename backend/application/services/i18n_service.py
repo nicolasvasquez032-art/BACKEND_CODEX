@@ -151,6 +151,9 @@ class I18nService:
         "El servicio de pagos no está configurado. Contacta al administrador.": (
             "Payment service is not configured. Please contact the administrator."
         ),
+        "Demasiados intentos. Por favor, espera un momento antes de reintentar.": (
+            "Too many requests. Please wait a moment before trying again."
+        ),
     }
 
     @classmethod

@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,11 +9,18 @@ class Settings(BaseSettings):
     jwt_secret_key: str = Field(default="change-me-in-development")
     jwt_algorithm: str = Field(default="HS256")
     jwt_access_token_expire_minutes: int = Field(default=60)
+    jwt_refresh_token_expire_days: int = Field(default=7)
     ml_service_url: str = Field(default="http://localhost:8001")
     
     # Security Configurations
     environment: str = Field(default="development")
     cors_origins: str = Field(default="*")
+
+    # Distributed caching / PubSub / Rate limiting (Factores VI y VIII)
+    redis_url: str | None = Field(default=None)
+
+    # Firebase Credentials vía variable de entorno directa (Factor III)
+    firebase_credentials_json: str | None = Field(default=None)
 
     # SMTP / Email
     smtp_host: str = Field(default="localhost")
@@ -30,7 +37,23 @@ class Settings(BaseSettings):
     mp_access_token: str = Field(default="")
     mp_back_url_base: str = Field(default="http://localhost:3000")
 
+    # Sentry Error Monitoring & APM
+    sentry_dsn: str | None = Field(default=None)
+    sentry_environment: str = Field(default="development")
+    sentry_traces_sample_rate: float = Field(default=1.0)
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    @model_validator(mode="after")
+    def validate_production_secrets(self) -> "Settings":
+        """Garantiza el cumplimiento estricto del Factor III en producción."""
+        if self.environment.lower() == "production":
+            if self.jwt_secret_key == "change-me-in-development":
+                raise ValueError(
+                    "Error de seguridad (12-Factor App - Factor III): JWT_SECRET_KEY "
+                    "debe definirse en las variables de entorno de producción."
+                )
+        return self
 
 
 settings = Settings()

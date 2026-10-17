@@ -7,7 +7,31 @@ on:
       - main
 
 jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.lock
+          pip install -e .
+
+      - name: Run Unit & Integration Tests (Gate for Factor V)
+        run: |
+          cd backend
+          python -m pytest
+
   build-and-push:
+    needs: run-tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -19,11 +43,25 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and Push Docker Image
+      - name: Build and Push Backend Docker Image (Immutable Release SHA + Latest)
         run: |
           cd backend
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:latest .
+          RELEASE_TAG="${{ github.sha }}"
+          docker build \
+            -t ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:${RELEASE_TAG} \
+            -t ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:latest .
+          docker push ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:${RELEASE_TAG}
           docker push ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:latest
+
+      - name: Build and Push ML Service Docker Image (Immutable Release SHA + Latest)
+        run: |
+          cd ml_service
+          RELEASE_TAG="${{ github.sha }}"
+          docker build \
+            -t ${{ secrets.DOCKER_USERNAME }}/talentmatch-ml-service:${RELEASE_TAG} \
+            -t ${{ secrets.DOCKER_USERNAME }}/talentmatch-ml-service:latest .
+          docker push ${{ secrets.DOCKER_USERNAME }}/talentmatch-ml-service:${RELEASE_TAG}
+          docker push ${{ secrets.DOCKER_USERNAME }}/talentmatch-ml-service:latest
 
   deploy-to-ec2:
     needs: build-and-push
@@ -37,8 +75,11 @@ jobs:
           ssh-keyscan -H ${{ secrets.AWS_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy and Restart Server
+        env:
+          RELEASE_TAG: ${{ github.sha }}
+          DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/key.pem ${{ secrets.AWS_USERNAME }}@${{ secrets.AWS_HOST }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/key.pem ${{ secrets.AWS_USERNAME }}@${{ secrets.AWS_HOST }} << EOF
             # 0. Instalar Docker automáticamente si no existe en el servidor
             if ! command -v docker &> /dev/null; then
                 echo "Instalando Docker en el servidor EC2..."
@@ -46,35 +87,49 @@ jobs:
                 sudo sh get-docker.sh
             fi
             
-            # 0.5 Limpiar espacio agresivamente en el servidor Ubuntu (Cachés, logs antiguos)
+            # 0.5 Limpiar espacio en el servidor Ubuntu (Cachés, logs antiguos)
             sudo apt-get clean
             sudo journalctl --vacuum-time=1h || true
             sudo rm -rf /var/log/journal/* || true
             sudo rm -rf /var/log/syslog* || true
             rm -rf ~/.cache/pip || true
             
-            # Reiniciar Docker (Si el disco llegó al 100%, el socket se bloquea con permission denied)
             sudo systemctl restart docker || true
             
-            # 1. Limpiar imágenes de Docker huérfanas
-            sudo docker system prune -af --volumes
+            # 1. Limpiar imágenes huérfanas sin borrar volúmenes persistentes de BD
+            sudo docker image prune -af
             
-            # 2. Descargar la nueva imagen compilada
-            sudo docker pull ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:latest
+            # 2. Descargar el release inmutable correspondiente a este commit (Factor V)
+            sudo docker pull ${DOCKER_USER}/talentmatch-ml-service:${RELEASE_TAG}
+            sudo docker pull ${DOCKER_USER}/talentmatch-backend:${RELEASE_TAG}
             
             # 3. Asegurarse de que exista el archivo .env
             cd ~/BACKEND_CODEX/backend || mkdir -p ~/BACKEND_CODEX/backend
             touch .env
             
-            # 4. Ejecutar migraciones de BD usando la imagen oficial
-            sudo docker run --rm --network host --env-file .env ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:latest alembic upgrade head
+            # 4. Factor XII: Migraciones de BD como proceso one-off con la imagen del release
+            sudo docker run --rm --network host --env-file .env ${DOCKER_USER}/talentmatch-backend:${RELEASE_TAG} alembic upgrade head
             
-            # 5. Detener el contenedor actual si existe y liberar puerto 8000
+            # 5. Desplegar Microservicio de Machine Learning (Puerto 8001)
+            sudo docker stop talentmatch-ml-service-prod || true
+            sudo docker rm talentmatch-ml-service-prod || true
+            sudo fuser -k 8001/tcp || true
+            sudo docker run -d \
+              --name talentmatch-ml-service-prod \
+              --restart unless-stopped \
+              --network host \
+              --env-file .env \
+              -e PORT="8001" \
+              -e WORKERS="2" \
+              --log-driver json-file \
+              --log-opt max-size=10m \
+              --log-opt max-file=3 \
+              ${DOCKER_USER}/talentmatch-ml-service:${RELEASE_TAG}
+
+            # 6. Desplegar API Backend Principal (Puerto 8000)
             sudo docker stop talentmatch-backend-prod || true
             sudo docker rm talentmatch-backend-prod || true
             sudo fuser -k 8000/tcp || true
-            
-            # 5. Levantar el nuevo servidor
             sudo docker run -d \
               --name talentmatch-backend-prod \
               --restart unless-stopped \
@@ -82,8 +137,20 @@ jobs:
               --env-file .env \
               -e ENVIRONMENT="production" \
               -e CORS_ORIGINS="*" \
+              -e ML_SERVICE_URL="http://localhost:8001" \
+              -e PORT="8000" \
+              -e WORKERS="2" \
               --log-driver json-file \
               --log-opt max-size=10m \
               --log-opt max-file=3 \
-              ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:latest
-          EOF
+              ${DOCKER_USER}/talentmatch-backend:${RELEASE_TAG}
+
+            # 7. Configurar cronjob de respaldo diario de PostgreSQL a las 02:00 AM
+            if [ -f ~/BACKEND_CODEX/scripts/backup_db.sh ]; then
+                chmod +x ~/BACKEND_CODEX/scripts/backup_db.sh
+                mkdir -p ~/backups
+                CRON_CMD="0 2 * * * /bin/bash \$HOME/BACKEND_CODEX/scripts/backup_db.sh >> \$HOME/backups/talentmatch_backup.log 2>&1"
+                (crontab -l 2>/dev/null | grep -Fv "backup_db.sh" ; echo "\$CRON_CMD") | crontab -
+                echo "Cronjob de respaldo diario configurado exitosamente."
+            fi
+EOF

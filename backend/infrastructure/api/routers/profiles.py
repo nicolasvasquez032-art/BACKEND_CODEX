@@ -1,6 +1,7 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
+from loguru import logger
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +18,7 @@ from domain.entities.user import User, UserRole
 from domain.exceptions import CVProcessingError, PermissionDeniedError, ProfileNotFoundError
 from infrastructure.adapters.cv_parser.composite_parser import CompositeCvParser
 from infrastructure.adapters.ml_client.http_ml_service import HttpMlServiceAdapter
-from infrastructure.adapters.persistence.database import get_session
+from infrastructure.adapters.persistence.database import get_session, session_factory
 from infrastructure.adapters.persistence.user_repository import SqlAlchemyUserRepository
 from infrastructure.api.dependencies import get_current_user, get_cv_parser
 from infrastructure.api.schemas.profiles import (
@@ -28,6 +29,31 @@ from infrastructure.api.schemas.profiles import (
 from infrastructure.config import settings
 
 router = APIRouter(prefix="/perfiles", tags=["perfiles"])
+
+
+class BackgroundMlServiceAdapter:
+    """Delega la generación y almacenamiento de embeddings de IA a BackgroundTasks."""
+
+    def __init__(self, background_tasks: BackgroundTasks, ml_service: HttpMlServiceAdapter):
+        self._bg = background_tasks
+        self._ml_service = ml_service
+
+    async def get_candidate_embedding(self, text: str) -> list[float]:
+        return await self._ml_service.get_candidate_embedding(text)
+
+    def schedule_embedding_update(self, profile_id: UUID, text: str) -> None:
+        self._bg.add_task(self._task, profile_id, text)
+
+    async def _task(self, profile_id: UUID, text: str) -> None:
+        try:
+            vector = await self._ml_service.get_candidate_embedding(text)
+            async with session_factory() as session:
+                repo = SqlAlchemyUserRepository(session)
+                await repo.update_embedding_candidato(profile_id, vector)
+                await session.commit()
+            logger.info(f"Embedding de IA para perfil {profile_id} generado exitosamente en segundo plano.")
+        except Exception as exc:
+            logger.error(f"Fallo al generar embedding en segundo plano para {profile_id}: {exc}")
 
 
 @router.get("/me", response_model=ProfileResponse)
@@ -171,14 +197,15 @@ async def update_profile(
 async def upload_cv(
     profile_id: UUID,
     file: UploadFile,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     cv_parser: CompositeCvParser = Depends(get_cv_parser),
     session: AsyncSession = Depends(get_session),
 ) -> CVUploadResponse:
     """Sube un CV en formato PDF o imagen (JPG, PNG, WEBP) y extrae su texto.
 
-    El texto extraído se guarda en el perfil del candidato para generar
-    el embedding semántico en el Sprint 3.
+    La extracción se procesa y el cálculo de embeddings vectoriales de IA se
+    delega a una tarea en segundo plano (BackgroundTasks) para responder de inmediato.
     """
     if current_user.role != UserRole.CANDIDATE:
         raise HTTPException(
@@ -205,15 +232,11 @@ async def upload_cv(
 
     mime_type = file.content_type
     
-    # 💡 LÓGICA DE ALMACENAMIENTO SEGURO (MOCK PARA SUSTENTACIÓN)
-    # En producción real, no se guarda en el disco local de EC2.
-    # Se usaría boto3 para subir file_bytes a un Amazon S3 Bucket:
-    # s3_client = boto3.client('s3')
-    # s3_client.put_object(Bucket='talentmatch-cvs', Key=f"{profile_id}.pdf", Body=file_bytes)
-
     repo = SqlAlchemyUserRepository(session)
-    ml_service = HttpMlServiceAdapter(settings.ml_service_url)
-    use_case = UploadCvUseCase(repo, cv_parser, ml_service)
+    ml_adapter = BackgroundMlServiceAdapter(
+        background_tasks, HttpMlServiceAdapter(settings.ml_service_url)
+    )
+    use_case = UploadCvUseCase(repo, cv_parser, ml_adapter)
 
     try:
         profile = await use_case.execute(

@@ -1,0 +1,36 @@
+# ==============================================================================
+# .dockerignore - ML Service FastAPI (TalentMatch)
+# Excluye archivos y directorios innecesarios del contexto de construcción Docker
+# ==============================================================================
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Archivos de caché y bytecode de Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Tests y herramientas
+.pytest_cache/
+.ruff_cache/
+
+# Control de versiones
+.git/
+.gitignore
+
+# Archivos de empaquetado
+build/
+dist/
+*.egg-info/
+
+# Secretos y logs
+.env
+*.log
+
+# IDEs
+.idea/
+.vscode/
+.DS_Store

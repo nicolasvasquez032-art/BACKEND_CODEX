@@ -1,5 +1,8 @@
 from dataclasses import dataclass
+import logging
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 from application.ports.cv_parser import CvParserPort
 from application.ports.ml_service_port import MlServicePort
@@ -69,9 +72,12 @@ class UploadCvUseCase:
 
         try:
             texto_para_embedding = f"{updated_profile.full_name} {' '.join(updated_profile.skills)} {updated_profile.education or ''} {updated_profile.cv_text or ''}"
-            vector = await self._ml_service.get_candidate_embedding(texto_para_embedding)
-            await self._users.update_embedding_candidato(updated_profile.id, vector)
+            if hasattr(self._ml_service, "schedule_embedding_update"):
+                self._ml_service.schedule_embedding_update(updated_profile.id, texto_para_embedding)
+            else:
+                vector = await self._ml_service.get_candidate_embedding(texto_para_embedding)
+                await self._users.update_embedding_candidato(updated_profile.id, vector)
         except Exception as e:
-            print(f"Error generando embedding para perfil {updated_profile.id}: {e}")
+            logger.error(f"Error generando embedding para perfil {updated_profile.id}: {e}")
 
         return updated_profile

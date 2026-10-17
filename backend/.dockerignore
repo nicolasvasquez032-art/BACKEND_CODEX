@@ -1,0 +1,54 @@
+# ==============================================================================
+# .dockerignore - Backend FastAPI (TalentMatch)
+# Excluye archivos y directorios innecesarios del contexto de construcción Docker
+# ==============================================================================
+
+# Entornos virtuales y paquetes de desarrollo local
+.venv/
+venv/
+ENV/
+env/
+
+# Archivos de caché y bytecode de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Tests y reportes de cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Linters y formateadores
+.ruff_cache/
+.mypy_cache/
+.flake8
+
+# Control de versiones y configuración de Git
+.git/
+.gitignore
+.github/
+
+# Archivos temporales de build y metadata de empaquetado
+build/
+dist/
+*.egg-info/
+
+# Secretos y variables de entorno locales (se inyectan vía Docker Compose)
+.env
+.env.local
+*.log
+*firebase-adminsdk*.json
+secrets/
+*.pem
+*.key
+
+# Configuraciones de IDEs y editores
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store

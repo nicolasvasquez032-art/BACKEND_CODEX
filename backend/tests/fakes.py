@@ -173,6 +173,9 @@ class FakeTokenService:
     def create_access_token(self, user: User) -> str:
         return f"fake_token_for_{user.email}"
 
+    def create_refresh_token(self, user: User) -> str:
+        return f"fake_refresh_for_{user.email}"
+
 
 # ── Email service fake ────────────────────────────────────────────────────────
 
