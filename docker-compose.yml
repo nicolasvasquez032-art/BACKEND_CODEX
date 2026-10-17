@@ -40,6 +40,39 @@ services:
         max-file: "3"
 
   # ----------------------------------------------------------------------------
+  # Servicio: PgBouncer (Connection Pooler de Alto Rendimiento para PostgreSQL)
+  # ----------------------------------------------------------------------------
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: talentmatch-pgbouncer
+    restart: unless-stopped
+    environment:
+      DB_USER: ${POSTGRES_USER:-talentmatch}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-talentmatch}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-talentmatch}
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 5000
+      DEFAULT_POOL_SIZE: 30
+      MIN_POOL_SIZE: 10
+      RESERVE_POOL_SIZE: 5
+      SERVER_IDLE_TIMEOUT: 60
+      AUTH_TYPE: scram-sha-256
+    ports:
+      - "${PGBOUNCER_PORT:-6432}:5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - talentmatch_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ----------------------------------------------------------------------------
   # Servicio 2: Microservicio de Inteligencia Artificial (ML & NLP)
   # ----------------------------------------------------------------------------
   ml_service:

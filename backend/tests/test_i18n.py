@@ -103,7 +103,7 @@ def test_translate_vacante_fields():
 
 from unittest.mock import AsyncMock
 from httpx import ASGITransport, AsyncClient
-from infrastructure.adapters.persistence.database import get_session
+from infrastructure.adapters.persistence.database import get_read_session, get_session
 from infrastructure.api.app import create_app
 
 
@@ -119,6 +119,7 @@ async def test_endpoint_accept_language_error_localization():
         yield mock_session
 
     app.dependency_overrides[get_session] = mock_get_session
+    app.dependency_overrides[get_read_session] = mock_get_session
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:

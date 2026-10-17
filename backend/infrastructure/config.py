@@ -6,6 +6,14 @@ class Settings(BaseSettings):
     database_url: str = Field(
         default="postgresql+asyncpg://talentmatch:talentmatch@localhost:5432/talentmatch"
     )
+    database_read_replica_url: str | None = Field(
+        default=None,
+        description="URL opcional de la réplica de solo lectura para separar escrituras de lecturas masivas."
+    )
+    use_pgbouncer: bool = Field(default=False)
+    db_pool_size: int = Field(default=20)
+    db_max_overflow: int = Field(default=30)
+    db_pool_timeout: int = Field(default=30)
     jwt_secret_key: str = Field(default="change-me-in-development")
     jwt_algorithm: str = Field(default="HS256")
     jwt_access_token_expire_minutes: int = Field(default=60)

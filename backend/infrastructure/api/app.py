@@ -35,7 +35,10 @@ async def lifespan(app: FastAPI):
     logger.info("TalentMatch API inicializada correctamente.")
     yield
     logger.info("Cerrando pools de conexiones y liberando recursos (Graceful Shutdown)...")
-    await engine.dispose()
+    from infrastructure.adapters.persistence.database import reader_engine, writer_engine
+    await writer_engine.dispose()
+    if reader_engine is not writer_engine:
+        await reader_engine.dispose()
     try:
         from infrastructure.adapters.cache.redis_cache_service import RedisCacheService
         await RedisCacheService.get_instance().close()

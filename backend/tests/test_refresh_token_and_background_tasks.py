@@ -6,7 +6,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from domain.entities.user import User, UserRole
-from infrastructure.adapters.persistence.database import get_session
+from infrastructure.adapters.persistence.database import get_read_session, get_session
 from infrastructure.adapters.security import JwtTokenService, PasslibPasswordHasher
 from infrastructure.api.app import create_app
 from infrastructure.api.rate_limiter import limiter
@@ -44,6 +44,7 @@ def mock_db_with_user():
     )
 
     app.dependency_overrides[get_session] = lambda: mock_session
+    app.dependency_overrides[get_read_session] = lambda: mock_session
     limiter.reset()
     return app, user
 

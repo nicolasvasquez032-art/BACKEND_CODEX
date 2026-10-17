@@ -18,7 +18,7 @@ from domain.entities.user import User, UserRole
 from domain.exceptions import CVProcessingError, PermissionDeniedError, ProfileNotFoundError
 from infrastructure.adapters.cv_parser.composite_parser import CompositeCvParser
 from infrastructure.adapters.ml_client.http_ml_service import HttpMlServiceAdapter
-from infrastructure.adapters.persistence.database import get_session, session_factory
+from infrastructure.adapters.persistence.database import get_read_session, get_session, session_factory
 from infrastructure.adapters.persistence.user_repository import SqlAlchemyUserRepository
 from infrastructure.api.dependencies import get_current_user, get_cv_parser
 from infrastructure.api.schemas.profiles import (
@@ -59,7 +59,7 @@ class BackgroundMlServiceAdapter:
 @router.get("/me", response_model=ProfileResponse)
 async def get_my_profile(
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_read_session),
 ) -> ProfileResponse:
     """Devuelve el perfil del candidato autenticado (usando su JWT).
 

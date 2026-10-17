@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from infrastructure.adapters.persistence.database import get_session
+from infrastructure.adapters.persistence.database import get_read_session, get_session
 from infrastructure.api.app import create_app
 from infrastructure.api.rate_limiter import limiter
 
@@ -18,6 +18,7 @@ def app_with_mocked_db():
     mock_session.execute = AsyncMock(return_value=mock_result)
 
     app.dependency_overrides[get_session] = lambda: mock_session
+    app.dependency_overrides[get_read_session] = lambda: mock_session
     # Reset limiter storage before each test
     limiter.reset()
     return app

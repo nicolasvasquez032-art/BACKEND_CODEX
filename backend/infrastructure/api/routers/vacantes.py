@@ -21,7 +21,7 @@ from domain.exceptions import PermissionDeniedError, VacanteNotFoundError
 from infrastructure.adapters.cache.redis_cache_service import RedisCacheService
 from infrastructure.adapters.fcm_adapter import RealFcmAdapter
 from infrastructure.adapters.ml_client.http_ml_service import HttpMlServiceAdapter
-from infrastructure.adapters.persistence.database import get_session
+from infrastructure.adapters.persistence.database import get_read_session, get_session
 from infrastructure.adapters.persistence.notificacion_repository import (
     SqlAlchemyNotificacionRepository,
 )
@@ -71,7 +71,7 @@ async def listar_vacantes(
     categoria: str | None = Query(default=None, max_length=100),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_read_session),
 ) -> list[VacanteResponse]:
     """Lista vacantes activas con aceleración por caché Redis y soporte i18n."""
     lang = request.headers.get("accept-language")
@@ -101,7 +101,7 @@ async def listar_vacantes(
 async def obtener_vacante(
     vacante_id: UUID,
     request: Request,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_read_session),
 ) -> VacanteResponse:
     """Obtiene el detalle de una vacante por ID. Soporta traducción vía Accept-Language."""
     repo = SqlAlchemyVacanteRepository(session)
