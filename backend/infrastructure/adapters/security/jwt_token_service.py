@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from jose import jwt
+import jwt
 
 from domain.entities.user import User
 from infrastructure.config import settings

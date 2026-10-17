@@ -19,6 +19,6 @@ jobs:
       - name: Check
         run: |
           ssh -i ~/.ssh/key.pem ${{ secrets.AWS_USERNAME }}@${{ secrets.AWS_HOST }} << 'INNER_EOF'
-            docker ps
+            sudo docker ps
             exit
           INNER_EOF

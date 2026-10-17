@@ -44,14 +44,10 @@ cryptography==50.0.2
     # via
     #   google-auth
     #   pdfminer-six
-    #   pyjwt
-    #   python-jose
 deprecated==3.0.0
     # via limits
 dnspython==2.8.0
     # via email-validator
-ecdsa==0.19.2
-    # via python-jose
 email-validator==2.3.0
     # via talentmatch-backend (pyproject.toml)
 fastapi==0.142.4
@@ -166,8 +162,6 @@ protobuf==7.36.2
 pyasn1==0.6.4
     # via
     #   pyasn1-modules
-    #   python-jose
-    #   rsa
 pyasn1-modules==0.4.2
     # via google-auth
 pycparser==3.0
@@ -190,8 +184,7 @@ python-dotenv==1.2.4
     # via
     #   pydantic-settings
     #   uvicorn
-python-jose[cryptography]==3.5.0
-    # via talentmatch-backend (pyproject.toml)
+
 python-multipart==0.0.32
     # via talentmatch-backend (pyproject.toml)
 pyyaml==6.0.3
@@ -202,10 +195,7 @@ requests==2.34.2
     #   google-api-core
     #   google-cloud-storage
     #   mercadopago
-rsa==4.9.1
-    # via python-jose
-six==1.17.0
-    # via ecdsa
+
 slowapi==0.1.10
     # via talentmatch-backend (pyproject.toml)
 sqlalchemy[asyncio]==2.1.4

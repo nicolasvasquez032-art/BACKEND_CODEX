@@ -1,7 +1,8 @@
 from uuid import UUID
 
+import jwt
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect, status
-from jose import JWTError, jwt
+from jwt.exceptions import PyJWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -48,7 +49,7 @@ async def _authenticate_websocket(websocket: WebSocket, token: str, user_id: UUI
 
         return True
 
-    except (JWTError, ValueError):
+    except (PyJWTError, ValueError):
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return False
 

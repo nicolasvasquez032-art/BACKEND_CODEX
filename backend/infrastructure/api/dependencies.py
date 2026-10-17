@@ -2,9 +2,10 @@
 from collections.abc import AsyncIterator
 from uuid import UUID
 
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+from jwt.exceptions import PyJWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.entities.user import User, UserRole
@@ -65,7 +66,7 @@ async def get_current_user(
         if user_id_str is None or token_type == "refresh":
             raise credentials_exception
         user_id = UUID(user_id_str)
-    except (JWTError, ValueError):
+    except (PyJWTError, ValueError):
         raise credentials_exception
 
     repo = SqlAlchemyUserRepository(session)
