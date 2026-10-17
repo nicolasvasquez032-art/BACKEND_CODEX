@@ -190,15 +190,31 @@ Para conocer el **límite absoluto y punto de quiebre (*Breakpoint*)** de la apl
 
 ---
 
-### 3.5 Reportes Gráficos Interactivos Generados
+### 3.5 Comparativa de Rendimiento: Con vs Sin Caché Distribuido (Redis)
+
+Para medir empíricamente el impacto de la optimización con **Redis In-Memory Caching**, se repitió la prueba con **1.000 usuarios concurrentes** midiendo el tiempo de respuesta y la eficiencia en la entrega de datos:
+
+| Métrica a 1.000 Usuarios | Sin Caché (PostgreSQL Directo) | Con Caché (Redis In-Memory) | Factor de Mejora |
+|---|:---:|:---:|:---:|
+| **Tiempo de respuesta Promedio** | 148 ms | **20 ms** | 🚀 **7.4x más rápido** |
+| **Mediana de latencia (50%)** | 84 ms | **4 ms** | 🚀 **21.0x más rápido** |
+| **Percentil 95 (P95)** | 460 ms | **140 ms** | 🚀 **3.3x más rápido** |
+| **Percentil 99 (P99)** | 980 ms | **200 ms** | 🚀 **4.9x más rápido** |
+| **Latencia Máxima (Peor caso)** | 2.587 ms | **350 ms** | 🚀 **7.4x más rápido** |
+| **Tasa de fallos** | 0.00% | **0.00%** | Confiabilidad 100% |
+
+---
+
+### 3.6 Reportes Gráficos Interactivos Generados
 
 Cada nivel de prueba generó su respectivo reporte estadístico en HTML con curvas interactivas de RPS, latencias en el tiempo y gráficos de distribución:
 
-| Nivel | Archivo de Reporte | Comando para Abrir en Navegador |
+| Nivel / Configuración | Archivo de Reporte | Comando para Abrir en Navegador |
 |---|---|---|
 | **100 Usuarios** | [`stress_test_100_users.html`](file:///home/nicolas-vasquez/Escritorio/BACKEND_CODEX/stress_test_100_users.html) | `xdg-open stress_test_100_users.html` |
 | **500 Usuarios** | [`stress_test_500_users.html`](file:///home/nicolas-vasquez/Escritorio/BACKEND_CODEX/stress_test_500_users.html) | `xdg-open stress_test_500_users.html` |
-| **1.000 Usuarios** | [`stress_test_1000_users.html`](file:///home/nicolas-vasquez/Escritorio/BACKEND_CODEX/stress_test_1000_users.html) | `xdg-open stress_test_1000_users.html` |
+| **1.000 Usuarios (Base)** | [`stress_test_1000_users.html`](file:///home/nicolas-vasquez/Escritorio/BACKEND_CODEX/stress_test_1000_users.html) | `xdg-open stress_test_1000_users.html` |
+| **1.000 Usuarios (Con Redis)** | [`stress_test_with_redis.html`](file:///home/nicolas-vasquez/Escritorio/BACKEND_CODEX/stress_test_with_redis.html) | `xdg-open stress_test_with_redis.html` |
 | **2.000 Usuarios** | [`stress_test_2000_users.html`](file:///home/nicolas-vasquez/Escritorio/BACKEND_CODEX/stress_test_2000_users.html) | `xdg-open stress_test_2000_users.html` |
 | **3.000 Usuarios** | [`stress_test_3000_users.html`](file:///home/nicolas-vasquez/Escritorio/BACKEND_CODEX/stress_test_3000_users.html) | `xdg-open stress_test_3000_users.html` |
 | **5.000 Usuarios** | [`stress_test_5000_users.html`](file:///home/nicolas-vasquez/Escritorio/BACKEND_CODEX/stress_test_5000_users.html) | `xdg-open stress_test_5000_users.html` |

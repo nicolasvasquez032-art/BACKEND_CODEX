@@ -243,3 +243,4 @@ websockets==17.2
     # via uvicorn
 wrapt==2.5.0
     # via deprecated
+redis==8.1.0

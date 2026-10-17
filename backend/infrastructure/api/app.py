@@ -36,6 +36,11 @@ async def lifespan(app: FastAPI):
     yield
     logger.info("Cerrando pools de conexiones y liberando recursos (Graceful Shutdown)...")
     await engine.dispose()
+    try:
+        from infrastructure.adapters.cache.redis_cache_service import RedisCacheService
+        await RedisCacheService.get_instance().close()
+    except Exception:
+        pass
 
 
 def create_app() -> FastAPI:

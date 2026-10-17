@@ -18,6 +18,7 @@ from application.use_cases.listar_vacantes import ListarVacantesQuery, ListarVac
 from application.use_cases.publicar_vacante import PublicarVacanteCommand, PublicarVacanteUseCase
 from domain.entities.user import User, UserRole
 from domain.exceptions import PermissionDeniedError, VacanteNotFoundError
+from infrastructure.adapters.cache.redis_cache_service import RedisCacheService
 from infrastructure.adapters.fcm_adapter import RealFcmAdapter
 from infrastructure.adapters.ml_client.http_ml_service import HttpMlServiceAdapter
 from infrastructure.adapters.persistence.database import get_session
@@ -72,14 +73,28 @@ async def listar_vacantes(
     limit: int = Query(default=20, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
 ) -> list[VacanteResponse]:
-    """Lista vacantes activas. Soporta traducción vía encabezado Accept-Language."""
+    """Lista vacantes activas con aceleración por caché Redis y soporte i18n."""
+    lang = request.headers.get("accept-language")
+    cache = RedisCacheService.get_instance()
+    
+    # 1. Consultar en Caché distribuido Redis (O(1) in-memory)
+    version = await cache.get_vacantes_version()
+    cache_key = f"cache:vacantes:v{version}:{ubicacion}:{categoria}:{offset}:{limit}:{lang}"
+    cached_data = await cache.get_json(cache_key)
+    if cached_data is not None:
+        return [VacanteResponse(**item) for item in cached_data]
+
+    # 2. Cache Miss: Consultar en PostgreSQL
     repo = SqlAlchemyVacanteRepository(session)
     use_case = ListarVacantesUseCase(repo)
     vacantes = await use_case.execute(
         ListarVacantesQuery(ubicacion=ubicacion, categoria=categoria, offset=offset, limit=limit)
     )
-    lang = request.headers.get("accept-language")
-    return [_to_response(v, lang=lang) for v in vacantes]
+    result = [_to_response(v, lang=lang) for v in vacantes]
+
+    # 3. Guardar en Redis de forma asíncrona con TTL de 60 segundos
+    await cache.set_json(cache_key, [item.model_dump(mode="json") for item in result], ttl=60)
+    return result
 
 
 @router.get("/{vacante_id}", response_model=VacanteResponse)
@@ -133,6 +148,7 @@ async def publicar_vacante(
             )
         )
         await session.commit()
+        await RedisCacheService.get_instance().invalidate_vacantes_cache()
     except SQLAlchemyError as exc:
         await session.rollback()
         raise HTTPException(
@@ -172,6 +188,7 @@ async def actualizar_vacante(
             )
         )
         await session.commit()
+        await RedisCacheService.get_instance().invalidate_vacantes_cache()
     except VacanteNotFoundError:
         await session.rollback()
         raise HTTPException(
@@ -216,6 +233,7 @@ async def cambiar_estado_vacante(
             )
         )
         await session.commit()
+        await RedisCacheService.get_instance().invalidate_vacantes_cache()
     except VacanteNotFoundError:
         await session.rollback()
         raise HTTPException(
@@ -251,6 +269,7 @@ async def eliminar_vacante(
     try:
         await use_case.execute(EliminarVacanteCommand(vacante_id, current_user.id))
         await session.commit()
+        await RedisCacheService.get_instance().invalidate_vacantes_cache()
     except VacanteNotFoundError:
         await session.rollback()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacante no encontrada")

@@ -72,13 +72,38 @@ services:
         max-file: "3"
 
   # ----------------------------------------------------------------------------
-  # Servicio 3: Backend API REST Principal
+  # ----------------------------------------------------------------------------
+  # Servicio: Caché en Memoria y Broker Pub/Sub (Redis)
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: talentmatch-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - talentmatch_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ----------------------------------------------------------------------------
+  # Servicio 3: Backend API REST Principal (Escalable Horizontalmente)
   # ----------------------------------------------------------------------------
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: talentmatch-backend
     restart: unless-stopped
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-development}
@@ -88,12 +113,16 @@ services:
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-60}
       ML_SERVICE_URL: http://ml_service:8000
-      REDIS_URL: ${REDIS_URL:-}
-      WORKERS: ${BACKEND_WORKERS:-1}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      WORKERS: ${BACKEND_WORKERS:-2}
+    expose:
+      - "8000"
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      - "${BACKEND_DIRECT_PORT:-8002}:8000"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       ml_service:
         condition: service_healthy
@@ -103,6 +132,27 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+    networks:
+      - talentmatch_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ----------------------------------------------------------------------------
+  # Servicio: Balanceador de Carga Nginx (Reverse Proxy & HTTP/WS Load Balancer)
+  # ----------------------------------------------------------------------------
+  gateway:
+    image: nginx:alpine
+    container_name: talentmatch-gateway
+    restart: unless-stopped
+    ports:
+      - "${GATEWAY_PORT:-8000}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
     networks:
       - talentmatch_network
     logging:
@@ -164,6 +214,8 @@ volumes:
   postgres_data:
     driver: local
   pgadmin_data:
+    driver: local
+  redis_data:
     driver: local
 
 # ==============================================================================

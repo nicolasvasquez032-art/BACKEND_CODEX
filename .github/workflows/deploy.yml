@@ -140,6 +140,17 @@ jobs:
               --log-opt max-file=3 \
               ${DOCKER_USER}/talentmatch-ml-service:${RELEASE_TAG}
 
+            # 5.5 Desplegar Redis (Caché en Memoria y Broker Pub/Sub)
+            if [ ! "$(sudo docker ps -q -f name=talentmatch-redis)" ]; then
+                sudo docker stop talentmatch-redis || true
+                sudo docker rm talentmatch-redis || true
+                sudo docker run -d \
+                  --name talentmatch-redis \
+                  --restart unless-stopped \
+                  --network host \
+                  redis:7-alpine redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+            fi
+
             # 6. Desplegar API Backend Principal (Puerto 8000)
             sudo docker stop talentmatch-backend-prod || true
             sudo docker rm talentmatch-backend-prod || true
@@ -152,6 +163,7 @@ jobs:
               -e ENVIRONMENT="production" \
               -e CORS_ORIGINS="*" \
               -e ML_SERVICE_URL="http://localhost:8001" \
+              -e REDIS_URL="redis://localhost:6379/0" \
               -e PORT="8000" \
               -e WORKERS="2" \
               --log-driver json-file \
