@@ -25,7 +25,14 @@ jobs:
           pip install -r requirements.lock
           pip install -e ".[dev]"
 
+      - name: Start PostgreSQL (for Integration Tests)
+        run: |
+          docker compose up -d postgres
+          sleep 5
+
       - name: Run Unit & Integration Tests (Gate for Factor V)
+        env:
+          DATABASE_URL: postgresql+asyncpg://talentmatch:talentmatch@localhost:5432/talentmatch
         run: |
           cd backend
           python -m pytest
