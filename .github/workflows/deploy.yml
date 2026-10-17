@@ -28,7 +28,14 @@ jobs:
       - name: Start PostgreSQL (for Integration Tests)
         run: |
           docker compose up -d postgres
-          sleep 5
+          sleep 8
+
+      - name: Initialize Database Models
+        env:
+          DATABASE_URL: postgresql+asyncpg://talentmatch:talentmatch@localhost:5432/talentmatch
+        run: |
+          cd backend
+          python init_db.py
 
       - name: Run Unit & Integration Tests (Gate for Factor V)
         env:
