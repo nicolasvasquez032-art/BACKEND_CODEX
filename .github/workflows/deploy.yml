@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@v4
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@v4
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -58,42 +58,51 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build and Push Backend Docker Image (Immutable Release SHA + Latest)
+        env:
+          DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
+          RELEASE_TAG: ${{ github.sha }}
         run: |
           cd backend
-          RELEASE_TAG="${{ github.sha }}"
           docker build \
-            -t ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:${RELEASE_TAG} \
-            -t ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:latest .
-          docker push ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:${RELEASE_TAG}
-          docker push ${{ secrets.DOCKER_USERNAME }}/talentmatch-backend:latest
+            -t "${DOCKER_USER}/talentmatch-backend:${RELEASE_TAG}" \
+            -t "${DOCKER_USER}/talentmatch-backend:latest" .
+          docker push "${DOCKER_USER}/talentmatch-backend:${RELEASE_TAG}"
+          docker push "${DOCKER_USER}/talentmatch-backend:latest"
 
       - name: Build and Push ML Service Docker Image (Immutable Release SHA + Latest)
+        env:
+          DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
+          RELEASE_TAG: ${{ github.sha }}
         run: |
           cd ml_service
-          RELEASE_TAG="${{ github.sha }}"
           docker build \
-            -t ${{ secrets.DOCKER_USERNAME }}/talentmatch-ml-service:${RELEASE_TAG} \
-            -t ${{ secrets.DOCKER_USERNAME }}/talentmatch-ml-service:latest .
-          docker push ${{ secrets.DOCKER_USERNAME }}/talentmatch-ml-service:${RELEASE_TAG}
-          docker push ${{ secrets.DOCKER_USERNAME }}/talentmatch-ml-service:latest
+            -t "${DOCKER_USER}/talentmatch-ml-service:${RELEASE_TAG}" \
+            -t "${DOCKER_USER}/talentmatch-ml-service:latest" .
+          docker push "${DOCKER_USER}/talentmatch-ml-service:${RELEASE_TAG}"
+          docker push "${DOCKER_USER}/talentmatch-ml-service:latest"
 
   deploy-to-ec2:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
       - name: Configure SSH Key
+        env:
+          AWS_KEY: ${{ secrets.AWS_PRIVATE_KEY }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.AWS_PRIVATE_KEY }}" > ~/.ssh/key.pem
+          echo "$AWS_KEY" > ~/.ssh/key.pem
           chmod 600 ~/.ssh/key.pem
-          ssh-keyscan -H ${{ secrets.AWS_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H "$AWS_HOST" >> ~/.ssh/known_hosts
 
       - name: Deploy and Restart Server
         env:
           RELEASE_TAG: ${{ github.sha }}
           DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
+          AWS_USER: ${{ secrets.AWS_USERNAME }}
+          AWS_HOST: ${{ secrets.AWS_HOST }}
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/key.pem ${{ secrets.AWS_USERNAME }}@${{ secrets.AWS_HOST }} << EOF
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/key.pem "${AWS_USER}@${AWS_HOST}" << EOF
             # 0. Instalar Docker automáticamente si no existe en el servidor
             if ! command -v docker &> /dev/null; then
                 echo "Instalando Docker en el servidor EC2..."
@@ -114,15 +123,15 @@ jobs:
             sudo docker image prune -af
             
             # 2. Descargar el release inmutable correspondiente a este commit (Factor V)
-            sudo docker pull ${DOCKER_USER}/talentmatch-ml-service:${RELEASE_TAG}
-            sudo docker pull ${DOCKER_USER}/talentmatch-backend:${RELEASE_TAG}
+            sudo docker pull \${DOCKER_USER}/talentmatch-ml-service:\${RELEASE_TAG}
+            sudo docker pull \${DOCKER_USER}/talentmatch-backend:\${RELEASE_TAG}
             
             # 3. Asegurarse de que exista el archivo .env
             cd ~/BACKEND_CODEX/backend || mkdir -p ~/BACKEND_CODEX/backend
             touch .env
             
             # 4. Factor XII: Migraciones de BD como proceso one-off con la imagen del release
-            sudo docker run --rm --network host --env-file .env ${DOCKER_USER}/talentmatch-backend:${RELEASE_TAG} alembic upgrade head
+            sudo docker run --rm --network host --env-file .env \${DOCKER_USER}/talentmatch-backend:\${RELEASE_TAG} alembic upgrade head
             
             # 5. Desplegar Microservicio de Machine Learning (Puerto 8001)
             sudo docker stop talentmatch-ml-service-prod || true
@@ -138,10 +147,10 @@ jobs:
               --log-driver json-file \
               --log-opt max-size=10m \
               --log-opt max-file=3 \
-              ${DOCKER_USER}/talentmatch-ml-service:${RELEASE_TAG}
+              \${DOCKER_USER}/talentmatch-ml-service:\${RELEASE_TAG}
 
             # 5.5 Desplegar Redis (Caché en Memoria y Broker Pub/Sub)
-            if [ ! "$(sudo docker ps -q -f name=talentmatch-redis)" ]; then
+            if [ ! "\$(sudo docker ps -q -f name=talentmatch-redis)" ]; then
                 sudo docker stop talentmatch-redis || true
                 sudo docker rm talentmatch-redis || true
                 sudo docker run -d \
@@ -169,14 +178,14 @@ jobs:
               --log-driver json-file \
               --log-opt max-size=10m \
               --log-opt max-file=3 \
-              ${DOCKER_USER}/talentmatch-backend:${RELEASE_TAG}
+              \${DOCKER_USER}/talentmatch-backend:\${RELEASE_TAG}
 
             # 7. Configurar cronjob de respaldo diario de PostgreSQL a las 02:00 AM
             if [ -f ~/BACKEND_CODEX/scripts/backup_db.sh ]; then
                 chmod +x ~/BACKEND_CODEX/scripts/backup_db.sh
                 mkdir -p ~/backups
-                CRON_CMD="0 2 * * * /bin/bash \$HOME/BACKEND_CODEX/scripts/backup_db.sh >> \$HOME/backups/talentmatch_backup.log 2>&1"
-                (crontab -l 2>/dev/null | grep -Fv "backup_db.sh" ; echo "\$CRON_CMD") | crontab -
+                CRON_CMD="0 2 * * * /bin/bash \\\$HOME/BACKEND_CODEX/scripts/backup_db.sh >> \\\$HOME/backups/talentmatch_backup.log 2>&1"
+                (crontab -l 2>/dev/null | grep -Fv "backup_db.sh" ; echo "\\\$CRON_CMD") | crontab -
                 echo "Cronjob de respaldo diario configurado exitosamente."
             fi
           EOF
