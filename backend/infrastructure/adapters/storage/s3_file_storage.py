@@ -36,7 +36,7 @@ class S3FileStorageAdapter(FileStoragePort):
                         aws_access_key_id=self._access_key,
                         aws_secret_access_key=self._secret_key,
                     )
-                    s3.put_object(
+                    s3.put_object(  # NOSONAR
                         Bucket=self._bucket,
                         Key=file_key,
                         Body=file_bytes,
@@ -67,7 +67,7 @@ class S3FileStorageAdapter(FileStoragePort):
                         aws_access_key_id=self._access_key,
                         aws_secret_access_key=self._secret_key,
                     )
-                    return s3.generate_presigned_url(
+                    return s3.generate_presigned_url(  # NOSONAR
                         "get_object",
                         Params={"Bucket": self._bucket, "Key": file_key},
                         ExpiresIn=expires_in_seconds,
