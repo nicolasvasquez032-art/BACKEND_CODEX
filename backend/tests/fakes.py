@@ -131,6 +131,9 @@ class FakeUserRepository:
         self.profiles[profile_id] = updated
         return updated
 
+    async def update_embedding_candidato(self, profile_id: UUID, vector: list[float]) -> None:
+        pass
+
     async def create_password_reset_token(
         self,
         user_id: UUID,
@@ -284,6 +287,12 @@ class FakeVacanteRepository:
         updated = replace(v, estado=nuevo_estado)
         self.vacantes[vacante_id] = updated
         return updated
+
+    async def update_embedding(self, vacante_id: UUID, vector: list[float]) -> None:
+        pass
+
+    async def delete(self, vacante_id: UUID) -> None:
+        self.vacantes.pop(vacante_id, None)
 
 
 # ── Repositorio fake de postulaciones ────────────────────────────────────────
