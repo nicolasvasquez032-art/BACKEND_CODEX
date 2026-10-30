@@ -16,4 +16,5 @@ class CandidateProfile:
     portfolio_url: str | None = None
     about_me: str | None = None
     job_title: str | None = None
+    cv_file_url: str | None = None
 

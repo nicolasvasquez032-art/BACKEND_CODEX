@@ -117,11 +117,15 @@ class SqlAlchemyUserRepository:
         await self._session.flush()
         return self._to_candidate_profile_entity(model)
 
-    async def update_cv_text(self, profile_id: UUID, cv_text: str) -> CandidateProfile:
+    async def update_cv_text(
+        self, profile_id: UUID, cv_text: str, cv_file_url: str | None = None
+    ) -> CandidateProfile:
         model = await self._session.get(CandidateProfileModel, profile_id)
         if model is None:
             raise ValueError(f"Perfil {profile_id} no encontrado en BD")
         model.cv_text = cv_text
+        if cv_file_url is not None:
+            model.cv_file_url = cv_file_url
         await self._session.flush()
         return self._to_candidate_profile_entity(model)
 
@@ -191,6 +195,7 @@ class SqlAlchemyUserRepository:
             portfolio_url=model.portfolio_url,
             about_me=model.about_me,
             job_title=model.job_title,
+            cv_file_url=model.cv_file_url,
         )
 
     @staticmethod

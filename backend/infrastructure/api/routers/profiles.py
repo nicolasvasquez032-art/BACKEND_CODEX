@@ -20,6 +20,7 @@ from infrastructure.adapters.cv_parser.composite_parser import CompositeCvParser
 from infrastructure.adapters.ml_client.http_ml_service import HttpMlServiceAdapter
 from infrastructure.adapters.persistence.database import get_read_session, get_session, session_factory
 from infrastructure.adapters.persistence.user_repository import SqlAlchemyUserRepository
+from infrastructure.adapters.storage.s3_file_storage import S3FileStorageAdapter
 from infrastructure.api.dependencies import get_current_user, get_cv_parser
 from infrastructure.api.schemas.profiles import (
     CVUploadResponse,
@@ -232,11 +233,12 @@ async def upload_cv(
 
     mime_type = file.content_type
     
+    storage = S3FileStorageAdapter()
     repo = SqlAlchemyUserRepository(session)
     ml_adapter = BackgroundMlServiceAdapter(
         background_tasks, HttpMlServiceAdapter(settings.ml_service_url)
     )
-    use_case = UploadCvUseCase(repo, cv_parser, ml_adapter)
+    use_case = UploadCvUseCase(repo, cv_parser, ml_adapter, storage=storage)
 
     try:
         profile = await use_case.execute(
@@ -245,6 +247,7 @@ async def upload_cv(
                 requesting_user_id=current_user.id,
                 file_bytes=file_bytes,
                 mime_type=mime_type,
+                file_name=file.filename or "curriculum.pdf",
             )
         )
         await session.commit()
@@ -264,9 +267,53 @@ async def upload_cv(
             detail="Error al guardar el CV",
         ) from exc
 
+    download_url = None
+    if profile.cv_file_url:
+        try:
+            download_url = await storage.generate_presigned_url(
+                profile.cv_file_url,
+                expires_in_seconds=settings.s3_presigned_url_expire_seconds,
+            )
+        except Exception as e:
+            logger.warning(f"No se pudo generar presigned url inmediata: {e}")
+
     cv_preview = (profile.cv_text or "")[:200]
     return CVUploadResponse(
         profile_id=profile.id,
         message="CV procesado y guardado exitosamente",
         cv_preview=cv_preview,
+        cv_download_url=download_url,
     )
+
+
+@router.get("/{profile_id}/cv-url")
+async def get_candidate_cv_presigned_url(
+    profile_id: UUID,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_read_session),
+) -> dict[str, str | int]:
+    """Genera una URL temporal prefirmada (Presigned URL) de AWS S3 válida por 15 minutos.
+
+    Permite a empresas o al propio candidato descargar/visualizar el archivo original con seguridad.
+    """
+    repo = SqlAlchemyUserRepository(session)
+    profile = await repo.get_candidate_profile_by_id(profile_id)
+    if profile is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Perfil no encontrado")
+
+    if not profile.cv_file_url:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="El candidato aún no ha subido un archivo original de CV.",
+        )
+
+    storage = S3FileStorageAdapter()
+    presigned_url = await storage.generate_presigned_url(
+        profile.cv_file_url,
+        expires_in_seconds=settings.s3_presigned_url_expire_seconds,
+    )
+    return {
+        "profile_id": str(profile_id),
+        "cv_url": presigned_url,
+        "expires_in_seconds": settings.s3_presigned_url_expire_seconds,
+    }

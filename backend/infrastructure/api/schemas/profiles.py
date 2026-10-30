@@ -28,9 +28,11 @@ class ProfileResponse(BaseModel):
     portfolio_url: str | None = None
     about_me: str | None = None
     job_title: str | None = None
+    cv_file_url: str | None = None
 
 
 class CVUploadResponse(BaseModel):
     profile_id: UUID
     message: str
     cv_preview: str  # Primeros 200 caracteres del texto extraído
+    cv_download_url: str | None = None

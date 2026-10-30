@@ -5,6 +5,7 @@ from uuid import UUID
 logger = logging.getLogger(__name__)
 
 from application.ports.cv_parser import CvParserPort
+from application.ports.file_storage_port import FileStoragePort
 from application.ports.ml_service_port import MlServicePort
 from application.ports.user_repository import UserRepositoryPort
 from domain.entities.candidate_profile import CandidateProfile
@@ -20,24 +21,23 @@ class UploadCvCommand:
     requesting_user_id: UUID   # ID del usuario autenticado
     file_bytes: bytes
     mime_type: str
+    file_name: str = "curriculum.pdf"
 
 
 class UploadCvUseCase:
-    """Procesa la carga de un CV (PDF o imagen) y persiste el texto extraído.
-
-    Flujo:
-    1. Valida que el usuario sea dueño del perfil.
-    2. Valida el mime type y el tamaño del archivo.
-    3. Delega la extracción de texto al CvParserPort.
-    4. Guarda el texto en el perfil.
-    """
+    """Procesa la carga de un CV (PDF o imagen), persiste el archivo original en S3 y extrae su texto."""
 
     def __init__(
-        self, users: UserRepositoryPort, cv_parser: CvParserPort, ml_service: MlServicePort
+        self,
+        users: UserRepositoryPort,
+        cv_parser: CvParserPort,
+        ml_service: MlServicePort,
+        storage: FileStoragePort | None = None,
     ) -> None:
         self._users = users
         self._cv_parser = cv_parser
         self._ml_service = ml_service
+        self._storage = storage
 
     async def execute(self, command: UploadCvCommand) -> CandidateProfile:
         profile = await self._users.get_candidate_profile_by_id(command.profile_id)
@@ -65,9 +65,19 @@ class UploadCvUseCase:
                 "o suba directamente la imagen del documento."
             )
 
+        file_key: str | None = None
+        if self._storage:
+            try:
+                file_key = await self._storage.upload_file(
+                    command.file_bytes, command.file_name, command.mime_type
+                )
+            except Exception as e:
+                logger.error(f"Error subiendo archivo original de CV a storage: {e}")
+
         updated_profile = await self._users.update_cv_text(
             profile_id=command.profile_id,
             cv_text=cv_text,
+            cv_file_url=file_key,
         )
 
         try:

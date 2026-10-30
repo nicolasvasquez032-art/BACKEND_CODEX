@@ -55,7 +55,9 @@ class UserRepositoryPort(Protocol):
     ) -> CandidateProfile:
         raise NotImplementedError
 
-    async def update_cv_text(self, profile_id: UUID, cv_text: str) -> CandidateProfile:
+    async def update_cv_text(
+        self, profile_id: UUID, cv_text: str, cv_file_url: str | None = None
+    ) -> CandidateProfile:
         raise NotImplementedError
 
     async def update_embedding_candidato(self, profile_id: UUID, embedding: list[float]) -> None:

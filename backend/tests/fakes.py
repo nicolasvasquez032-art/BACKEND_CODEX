@@ -115,13 +115,19 @@ class FakeUserRepository:
         self.profiles[profile_id] = updated
         return updated
 
-    async def update_cv_text(self, profile_id: UUID, cv_text: str) -> CandidateProfile:
+    async def update_cv_text(
+        self, profile_id: UUID, cv_text: str, cv_file_url: str | None = None
+    ) -> CandidateProfile:
         from domain.exceptions import ProfileNotFoundError
         profile = self.profiles.get(profile_id)
         if profile is None:
             raise ProfileNotFoundError(f"Perfil {profile_id} no encontrado")
         from dataclasses import replace
-        updated = replace(profile, cv_text=cv_text)
+        updated = replace(
+            profile,
+            cv_text=cv_text,
+            cv_file_url=cv_file_url if cv_file_url is not None else profile.cv_file_url,
+        )
         self.profiles[profile_id] = updated
         return updated
 

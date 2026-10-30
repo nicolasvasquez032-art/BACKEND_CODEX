@@ -43,7 +43,15 @@ class Settings(BaseSettings):
 
     # Mercado Pago
     mp_access_token: str = Field(default="")
+    mp_webhook_secret: str = Field(default="")
     mp_back_url_base: str = Field(default="http://localhost:3000")
+
+    # AWS S3 Storage para CVs
+    aws_access_key_id: str | None = Field(default=None)
+    aws_secret_access_key: str | None = Field(default=None)
+    aws_region: str = Field(default="us-east-2")
+    s3_bucket_name: str = Field(default="talentmatch-cvs")
+    s3_presigned_url_expire_seconds: int = Field(default=900)
 
     # Sentry Error Monitoring & APM
     sentry_dsn: str | None = Field(default=None)
