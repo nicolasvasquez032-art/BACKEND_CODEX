@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     database_url: str = Field(
-        default="postgresql+asyncpg://talentmatch:talentmatch@localhost:5432/talentmatch"
+        default="postgresql+asyncpg://postgres:postgres@localhost:5432/talentmatch"
     )
     database_read_replica_url: str | None = Field(
         default=None,
