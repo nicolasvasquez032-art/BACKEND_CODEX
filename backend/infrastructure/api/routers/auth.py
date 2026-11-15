@@ -1,4 +1,5 @@
 import secrets
+import time
 from uuid import UUID
 
 import httpx
@@ -49,6 +50,9 @@ from infrastructure.api.schemas.auth import (
 from infrastructure.config import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# Almacén en memoria para intercambio seguro de sesiones OAuth entre navegador móvil y la app
+_pending_oauth_sessions: dict[str, dict] = {}
 
 
 class BackgroundEmailServiceAdapter:
@@ -433,11 +437,16 @@ async def oauth_authorize(
     provider: str,
     request: Request,
     redirect_origin: str = Query(default=""),
+    session_id: str | None = Query(default=None),
 ) -> RedirectResponse:
     """Redirige a la pantalla oficial de inicio de sesión de Google, Facebook o LinkedIn."""
     provider = provider.lower().strip()
     callback_url = f"{str(request.base_url).rstrip('/')}/auth/oauth/{provider}/callback"
-    state = redirect_origin or str(request.base_url).rstrip('/')
+    state_origin = redirect_origin or str(request.base_url).rstrip('/')
+    if session_id:
+        state = f"{state_origin}__session__{session_id}"
+    else:
+        state = state_origin
 
     if provider == "google":
         client_id = settings.google_client_id or "talentmatch-google-oauth-client"
@@ -615,14 +624,38 @@ async def oauth_callback(
     access_token = token_service.create_access_token(user)
     refresh_token = token_service.create_refresh_token(user)
 
-    target_redirect = state or "/"
+    session_id: str | None = None
+    if "__session__" in state:
+        parts = state.split("__session__", 1)
+        target_redirect = parts[0] or "/"
+        session_id = parts[1]
+    elif state.startswith("session:"):
+        session_id = state.split("session:", 1)[1]
+        target_redirect = "/"
+    else:
+        target_redirect = state or "/"
+
+    if session_id:
+        _pending_oauth_sessions[session_id] = {
+            "token": access_token,
+            "refreshToken": refresh_token,
+            "email": email,
+            "provider": provider,
+            "created_at": time.time(),
+        }
 
     return HTMLResponse(
-        f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Autenticación Exitosa — TalentMatch</title></head>
-        <body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; background: #0f172a; color: white;">
-          <div style="text-align: center;">
-            <h2 style="color: #38bdf8;">¡Autenticación Exitosa con {provider.capitalize()}!</h2>
-            <p>Conectando con TalentMatch...</p>
+        f"""<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Autenticación Exitosa — TalentMatch</title></head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #0f172a; color: white;">
+          <div style="text-align: center; max-width: 440px; margin: 20px; padding: 32px 24px; background: rgba(30, 41, 59, 0.8); border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
+            <div style="width: 56px; height: 56px; border-radius: 50%; background: #10b981; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <h2 style="color: #38bdf8; margin: 0 0 8px; font-size: 21px; font-weight: 700;">¡Autenticación Exitosa!</h2>
+            <p style="color: #cbd5e1; font-size: 14px; margin: 0 0 6px;">Conectado vía {provider.capitalize()} como:</p>
+            <p style="color: #f8fafc; font-size: 15px; font-weight: 600; margin: 0 0 16px;">{email}</p>
+            <p style="color: #94a3b8; font-size: 13px; line-height: 1.4; margin: 0 0 20px;">Tu sesión se ha sincronizado. Ya puedes cerrar esta ventana y regresar a la aplicación <b>TalentMatch</b>.</p>
+            <a href="talentmatch://oauth-callback?token={access_token}&refresh={refresh_token}&provider={provider}" style="display: inline-block; padding: 12px 28px; background: #2563eb; color: white; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 14px;">Volver a la App TalentMatch</a>
           </div>
           <script>
             const token = '{access_token}';
@@ -646,14 +679,35 @@ async def oauth_callback(
                   window.opener.location.href = destination;
                 }} catch (e) {{}}
                 setTimeout(() => window.close(), 600);
-              }} else {{
+              }} else if (target && target !== '/') {{
                 window.location.href = destination;
               }}
-            }} catch (e) {{
-              window.location.href = destination;
-            }}
+            }} catch (e) {{}}
           </script>
         </body></html>"""
     )
+
+
+@router.get("/oauth/session/{session_id}")
+async def get_oauth_session(session_id: str) -> dict:
+    """Consulta el estado de autenticación de una sesión OAuth iniciada desde móvil o web."""
+    now = time.time()
+    expired = [k for k, v in _pending_oauth_sessions.items() if now - v.get("created_at", 0) > 600]
+    for k in expired:
+        _pending_oauth_sessions.pop(k, None)
+
+    data = _pending_oauth_sessions.get(session_id)
+    if not data:
+        return {"status": "pending"}
+
+    # Retorna y remueve para uso único
+    _pending_oauth_sessions.pop(session_id, None)
+    return {
+        "status": "completed",
+        "token": data["token"],
+        "refreshToken": data["refreshToken"],
+        "email": data["email"],
+        "provider": data["provider"],
+    }
 
 
