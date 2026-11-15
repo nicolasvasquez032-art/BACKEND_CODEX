@@ -65,3 +65,21 @@ class ConfirmPasswordResetRequest(BaseModel):
     token: str = Field(min_length=10, max_length=200)
     new_password: str = Field(min_length=8, max_length=128)
 
+
+class SocialLoginRequest(BaseModel):
+    provider: str = Field(description="google, facebook, o linkedin")
+    token: str = Field(default="", description="Token de acceso, id_token o código de autorización")
+    email: EmailStr | None = Field(default=None, description="Correo electrónico verificado por el proveedor")
+    full_name: str | None = Field(default=None, description="Nombre completo del usuario obtenido del proveedor")
+    avatar_url: str | None = Field(default=None, description="Foto de perfil del proveedor")
+
+
+class SocialConfigResponse(BaseModel):
+    google_configured: bool
+    facebook_configured: bool
+    linkedin_configured: bool
+    google_client_id: str | None = None
+    facebook_app_id: str | None = None
+    linkedin_client_id: str | None = None
+
+

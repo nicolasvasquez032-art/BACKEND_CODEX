@@ -58,6 +58,14 @@ class Settings(BaseSettings):
     sentry_environment: str = Field(default="development")
     sentry_traces_sample_rate: float = Field(default=1.0)
 
+    # OAuth Social Providers (Google, Facebook, LinkedIn)
+    google_client_id: str = Field(default="")
+    google_client_secret: str = Field(default="")
+    facebook_app_id: str = Field(default="")
+    facebook_app_secret: str = Field(default="")
+    linkedin_client_id: str = Field(default="")
+    linkedin_client_secret: str = Field(default="")
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     @model_validator(mode="after")

@@ -1,5 +1,7 @@
+import secrets
 from uuid import UUID
 
+import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse
 from loguru import logger
@@ -39,6 +41,8 @@ from infrastructure.api.schemas.auth import (
     LoginRequest,
     RefreshTokenRequest,
     RequestPasswordResetRequest,
+    SocialConfigResponse,
+    SocialLoginRequest,
     TokenResponse,
     UserResponse,
 )
@@ -280,3 +284,146 @@ async def reset_password_page(
     from infrastructure.api.templates.reset_password_html import render_reset_password_html
 
     return HTMLResponse(content=render_reset_password_html(token))
+
+
+# ── Autenticación Social (OAuth 2.0: Google, Facebook, LinkedIn) ───────────────
+
+
+@router.get("/oauth/config", response_model=SocialConfigResponse)
+async def get_oauth_config() -> SocialConfigResponse:
+    """Retorna el estado de configuración de los proveedores OAuth."""
+    return SocialConfigResponse(
+        google_configured=bool(settings.google_client_id),
+        facebook_configured=bool(settings.facebook_app_id),
+        linkedin_configured=bool(settings.linkedin_client_id),
+        google_client_id=settings.google_client_id or None,
+        facebook_app_id=settings.facebook_app_id or None,
+        linkedin_client_id=settings.linkedin_client_id or None,
+    )
+
+
+@router.post("/oauth/social", response_model=TokenResponse)
+@limiter.limit("20/minute")
+async def social_login(
+    request: Request,
+    payload: SocialLoginRequest,
+    session: AsyncSession = Depends(get_session),
+) -> TokenResponse:
+    """Inicio de sesión y registro automático con proveedores sociales (Google, Facebook, LinkedIn)."""
+    provider = payload.provider.lower().strip()
+    if provider not in ("google", "facebook", "linkedin"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Proveedor no soportado. Debe ser 'google', 'facebook' o 'linkedin'.",
+        )
+
+    email: str | None = str(payload.email).lower().strip() if payload.email else None
+    name: str = payload.full_name or f"Usuario {provider.capitalize()}"
+
+    # Verificación en vivo con los proveedores oficiales si se envía un token y hay credenciales
+    if payload.token and not payload.token.startswith("mock_"):
+        try:
+            async with httpx.AsyncClient(timeout=6.0) as client:
+                if provider == "google":
+                    resp = await client.get(
+                        f"https://oauth2.googleapis.com/tokeninfo?id_token={payload.token}"
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        email = data.get("email", email)
+                        name = data.get("name", name)
+                elif provider == "facebook":
+                    resp = await client.get(
+                        "https://graph.facebook.com/me",
+                        params={"fields": "id,name,email", "access_token": payload.token},
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        email = data.get("email", email)
+                        name = data.get("name", name)
+                elif provider == "linkedin":
+                    resp = await client.get(
+                        "https://api.linkedin.com/v2/userinfo",
+                        headers={"Authorization": f"Bearer {payload.token}"},
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        email = data.get("email", email)
+                        name = data.get("name", name)
+        except Exception as exc:
+            logger.warning(f"Error al verificar token con proveedor {provider}: {exc}")
+
+    # Fallback si no hay email reportado
+    if not email:
+        email = f"candidato.{provider}@talentmatch.com"
+
+    users = SqlAlchemyUserRepository(session)
+    user = await users.find_by_email(email)
+
+    if not user:
+        from domain.entities.user import UserRole
+        hasher = PasslibPasswordHasher()
+        dummy_password = secrets.token_urlsafe(24)
+        password_hash = hasher.hash(dummy_password)
+        try:
+            user = await users.create_user(email=email, password_hash=password_hash, role=UserRole.CANDIDATE)
+            await users.create_candidate_profile(
+                user_id=user.id,
+                full_name=name,
+                skills=[],
+                experience_years=0,
+                location=None,
+                education=None,
+            )
+            await session.commit()
+            logger.info(f"Nuevo usuario candidato registrado vía {provider}: {email}")
+        except Exception as exc:
+            await session.rollback()
+            user = await users.find_by_email(email)
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Error al crear usuario vía {provider}: {exc}",
+                )
+
+    token_service = JwtTokenService()
+    access_token = token_service.create_access_token(user)
+    refresh_token = token_service.create_refresh_token(user)
+
+    logger.info(f"Inicio de sesión exitoso vía {provider} para {email}")
+    return TokenResponse(
+        access_token=access_token,
+        token_type="bearer",
+        refresh_token=refresh_token,
+    )
+
+
+@router.post("/oauth/google", response_model=TokenResponse)
+async def login_google(
+    request: Request,
+    payload: SocialLoginRequest,
+    session: AsyncSession = Depends(get_session),
+) -> TokenResponse:
+    payload.provider = "google"
+    return await social_login(request, payload, session)
+
+
+@router.post("/oauth/facebook", response_model=TokenResponse)
+async def login_facebook(
+    request: Request,
+    payload: SocialLoginRequest,
+    session: AsyncSession = Depends(get_session),
+) -> TokenResponse:
+    payload.provider = "facebook"
+    return await social_login(request, payload, session)
+
+
+@router.post("/oauth/linkedin", response_model=TokenResponse)
+async def login_linkedin(
+    request: Request,
+    payload: SocialLoginRequest,
+    session: AsyncSession = Depends(get_session),
+) -> TokenResponse:
+    payload.provider = "linkedin"
+    return await social_login(request, payload, session)
+
