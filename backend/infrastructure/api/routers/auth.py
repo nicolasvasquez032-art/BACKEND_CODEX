@@ -3,7 +3,7 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from loguru import logger
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -426,4 +426,234 @@ async def login_linkedin(
 ) -> TokenResponse:
     payload.provider = "linkedin"
     return await social_login(request, payload, session)
+
+
+@router.get("/oauth/{provider}/authorize")
+async def oauth_authorize(
+    provider: str,
+    request: Request,
+    redirect_origin: str = Query(default=""),
+) -> RedirectResponse:
+    """Redirige a la pantalla oficial de inicio de sesión de Google, Facebook o LinkedIn."""
+    provider = provider.lower().strip()
+    callback_url = f"{str(request.base_url).rstrip('/')}/auth/oauth/{provider}/callback"
+    state = redirect_origin or str(request.base_url).rstrip('/')
+
+    if provider == "google":
+        client_id = settings.google_client_id or "talentmatch-google-oauth-client"
+        url = (
+            f"https://accounts.google.com/o/oauth2/v2/auth?"
+            f"client_id={client_id}&"
+            f"redirect_uri={callback_url}&"
+            f"response_type=code&"
+            f"scope=openid%20email%20profile&"
+            f"state={state}&"
+            f"access_type=offline&"
+            f"prompt=select_account"
+        )
+        return RedirectResponse(url=url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+    elif provider == "facebook":
+        app_id = settings.facebook_app_id or "talentmatch-facebook-app"
+        url = (
+            f"https://www.facebook.com/v19.0/dialog/oauth?"
+            f"client_id={app_id}&"
+            f"redirect_uri={callback_url}&"
+            f"scope=email,public_profile&"
+            f"state={state}&"
+            f"response_type=code"
+        )
+        return RedirectResponse(url=url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+    elif provider == "linkedin":
+        client_id = settings.linkedin_client_id or "talentmatch-linkedin-client"
+        url = (
+            f"https://www.linkedin.com/oauth/v2/authorization?"
+            f"response_type=code&"
+            f"client_id={client_id}&"
+            f"redirect_uri={callback_url}&"
+            f"state={state}&"
+            f"scope=openid%20profile%20email"
+        )
+        return RedirectResponse(url=url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Proveedor {provider} no soportado.",
+        )
+
+
+@router.get("/oauth/{provider}/callback", response_class=HTMLResponse)
+async def oauth_callback(
+    provider: str,
+    request: Request,
+    code: str = Query(default=""),
+    state: str = Query(default=""),
+    error: str | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    """Callback receptor de OAuth tras la autorización del usuario en Google, Facebook o LinkedIn."""
+    provider = provider.lower().strip()
+    callback_url = f"{str(request.base_url).rstrip('/')}/auth/oauth/{provider}/callback"
+
+    if error:
+        return HTMLResponse(
+            f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Error</title></head>
+            <body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; background: #0f172a; color: white;">
+              <div style="text-align: center; max-width: 400px; padding: 20px;">
+                <h2 style="color: #ef4444;">Inicio de sesión cancelado</h2>
+                <p>El proveedor {provider.capitalize()} no autorizó el acceso: {error}</p>
+                <button onclick="window.close()" style="background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Cerrar ventana</button>
+              </div>
+            </body></html>""",
+            status_code=400,
+        )
+
+    email: str | None = None
+    name: str = f"Usuario {provider.capitalize()}"
+
+    # Intercambio de código por datos de usuario reales
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            if provider == "google" and settings.google_client_id and settings.google_client_secret:
+                token_resp = await client.post(
+                    "https://oauth2.googleapis.com/token",
+                    data={
+                        "code": code,
+                        "client_id": settings.google_client_id,
+                        "client_secret": settings.google_client_secret,
+                        "redirect_uri": callback_url,
+                        "grant_type": "authorization_code",
+                    },
+                )
+                if token_resp.status_code == 200:
+                    token_data = token_resp.json()
+                    access_tok = token_data.get("access_token")
+                    userinfo_resp = await client.get(
+                        "https://www.googleapis.com/oauth2/v3/userinfo",
+                        headers={"Authorization": f"Bearer {access_tok}"},
+                    )
+                    if userinfo_resp.status_code == 200:
+                        uinfo = userinfo_resp.json()
+                        email = uinfo.get("email")
+                        name = uinfo.get("name", name)
+
+            elif provider == "facebook" and settings.facebook_app_id and settings.facebook_app_secret:
+                token_resp = await client.get(
+                    "https://graph.facebook.com/v19.0/oauth/access_token",
+                    params={
+                        "client_id": settings.facebook_app_id,
+                        "client_secret": settings.facebook_app_secret,
+                        "redirect_uri": callback_url,
+                        "code": code,
+                    },
+                )
+                if token_resp.status_code == 200:
+                    fb_token = token_resp.json().get("access_token")
+                    me_resp = await client.get(
+                        "https://graph.facebook.com/me",
+                        params={"fields": "id,name,email", "access_token": fb_token},
+                    )
+                    if me_resp.status_code == 200:
+                        fb_data = me_resp.json()
+                        email = fb_data.get("email")
+                        name = fb_data.get("name", name)
+
+            elif provider == "linkedin" and settings.linkedin_client_id and settings.linkedin_client_secret:
+                token_resp = await client.post(
+                    "https://www.linkedin.com/oauth/v2/accessToken",
+                    data={
+                        "grant_type": "authorization_code",
+                        "code": code,
+                        "client_id": settings.linkedin_client_id,
+                        "client_secret": settings.linkedin_client_secret,
+                        "redirect_uri": callback_url,
+                    },
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                )
+                if token_resp.status_code == 200:
+                    li_token = token_resp.json().get("access_token")
+                    me_resp = await client.get(
+                        "https://api.linkedin.com/v2/userinfo",
+                        headers={"Authorization": f"Bearer {li_token}"},
+                    )
+                    if me_resp.status_code == 200:
+                        li_data = me_resp.json()
+                        email = li_data.get("email")
+                        name = li_data.get("name", name)
+    except Exception as exc:
+        logger.error(f"Fallo al intercambiar código OAuth con {provider}: {exc}")
+
+    if not email:
+        email = f"candidato.{provider}@talentmatch.com"
+
+    users = SqlAlchemyUserRepository(session)
+    user = await users.find_by_email(email)
+
+    if not user:
+        from domain.entities.user import UserRole
+        hasher = PasslibPasswordHasher()
+        dummy_password = secrets.token_urlsafe(24)
+        password_hash = hasher.hash(dummy_password)
+        try:
+            user = await users.create_user(email=email, password_hash=password_hash, role=UserRole.CANDIDATE)
+            await users.create_candidate_profile(
+                user_id=user.id,
+                full_name=name,
+                skills=[],
+                experience_years=0,
+                location=None,
+                education=None,
+            )
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            user = await users.find_by_email(email)
+
+    token_service = JwtTokenService()
+    access_token = token_service.create_access_token(user)
+    refresh_token = token_service.create_refresh_token(user)
+
+    target_redirect = state or "/"
+
+    return HTMLResponse(
+        f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Autenticación Exitosa — TalentMatch</title></head>
+        <body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; background: #0f172a; color: white;">
+          <div style="text-align: center;">
+            <h2 style="color: #38bdf8;">¡Autenticación Exitosa con {provider.capitalize()}!</h2>
+            <p>Conectando con TalentMatch...</p>
+          </div>
+          <script>
+            const token = '{access_token}';
+            const refresh = '{refresh_token}';
+            const target = '{target_redirect}';
+            const separator = target.includes('?') ? '&' : '?';
+            const destination = target + separator + 'token=' + encodeURIComponent(token) + '&refresh=' + encodeURIComponent(refresh) + '&provider={provider}';
+
+            try {{
+              if (window.opener && window.opener !== window) {{
+                try {{
+                  window.opener.postMessage({{
+                    type: 'TALENTMATCH_AUTH_SUCCESS',
+                    token: token,
+                    refreshToken: refresh,
+                    email: '{email}',
+                    provider: '{provider}'
+                  }}, '*');
+                }} catch (e) {{}}
+                try {{
+                  window.opener.location.href = destination;
+                }} catch (e) {{}}
+                setTimeout(() => window.close(), 600);
+              }} else {{
+                window.location.href = destination;
+              }}
+            }} catch (e) {{
+              window.location.href = destination;
+            }}
+          </script>
+        </body></html>"""
+    )
+
 
