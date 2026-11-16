@@ -99,6 +99,49 @@ async def postularse(
             detail="Debes subir tu hoja de vida (CV) antes de postularte a una vacante.",
         )
 
+    vacante_model = await session.get(VacanteModel, request.vacante_id)
+    if not vacante_model:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vacante no encontrada",
+        )
+
+    # 🛡️ REGLA DE NEGOCIO: Afinidad mínima de IA del 50% (no se puede postular si es <= 49%)
+    calculated_score = None
+    if getattr(profile, "embedding", None) is not None and vacante_model.embedding is not None:
+        try:
+            emb_c = list(profile.embedding)
+            emb_v = list(vacante_model.embedding)
+            dot = sum(x * y for x, y in zip(emb_c, emb_v))
+            norm_c = math.sqrt(sum(x * x for x in emb_c))
+            norm_v = math.sqrt(sum(y * y for y in emb_v))
+            if norm_c > 0 and norm_v > 0:
+                sim = dot / (norm_c * norm_v)
+                calculated_score = round(max(30.0, min(99.0, (sim + 0.2) * 70.0)), 1)
+        except Exception:
+            pass
+
+    if calculated_score is None:
+        cand_skills = {s.lower().strip() for s in (profile.skills or []) if s.strip()}
+        vac_reqs = {r.lower().strip() for r in (vacante_model.requisitos or []) if r.strip()}
+        title_desc = f"{vacante_model.titulo} {vacante_model.descripcion}".lower()
+        matches = {s for s in cand_skills if s in vac_reqs or s in title_desc}
+        if vac_reqs:
+            if matches:
+                calculated_score = round(min(98.0, max(50.0, 50.0 + 8.0 * len(matches))), 1)
+            elif cand_skills:
+                calculated_score = 42.0
+            else:
+                calculated_score = 40.0
+        else:
+            calculated_score = 75.0
+
+    if calculated_score is not None and calculated_score <= 49.0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"No superas la afinidad mínima requerida del 50% para postularte a esta vacante. Tu compatibilidad calculada por IA es del {calculated_score:.0f}%. Mejora tus habilidades en tu perfil antes de postularte.",
+        )
+
     postulaciones_repo = SqlAlchemyPostulacionRepository(session)
     vacantes_repo = SqlAlchemyVacanteRepository(session)
     use_case = PostularseAVacanteUseCase(postulaciones_repo, vacantes_repo)
@@ -110,6 +153,24 @@ async def postularse(
                 vacante_id=request.vacante_id,
             )
         )
+        if calculated_score is not None:
+            post_model = await session.get(PostulacionModel, postulacion.id)
+            if post_model:
+                post_model.score_match = calculated_score / 100.0
+
+        # Notificación interna a la empresa
+        try:
+            from infrastructure.adapters.persistence.models import NotificacionModel
+            notif = NotificacionModel(
+                usuario_id=vacante_model.empresa_id,
+                tipo="postulacion",
+                mensaje=f"Nuevo candidato postulado: {profile.full_name} se ha postulado a '{vacante_model.titulo}'. [CANDIDATO_ID:{profile.id}] [VACANTE_ID:{vacante_model.id}]",
+                leido=False,
+            )
+            session.add(notif)
+        except Exception:
+            pass
+
         await session.commit()
     except VacanteNotFoundError as exc:
         await session.rollback()
@@ -282,6 +343,8 @@ async def listar_postulaciones_vacante(
             cand_user = users_dict.get(cand_prof.user_id) if cand_prof.user_id else None
             if cand_user:
                 resp.candidato_email = cand_user.email
+            resp.candidato_cv_url = cand_prof.cv_file_url
+            resp.candidato_cv_text = cand_prof.cv_text
 
             # Calcular score_match dinámico si no está persistido
             if resp.score_match is None and vacante_model:

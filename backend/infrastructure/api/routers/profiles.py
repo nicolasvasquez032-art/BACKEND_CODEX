@@ -321,6 +321,15 @@ async def get_candidate_cv_presigned_url(
         )
 
     if not profile.cv_file_url:
+        if profile.cv_text and profile.cv_text.strip():
+            return {
+                "profile_id": str(profile_id),
+                "cv_url": None,
+                "cv_text": profile.cv_text,
+                "full_name": profile.full_name,
+                "skills": profile.skills,
+                "expires_in_seconds": settings.s3_presigned_url_expire_seconds,
+            }
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="El candidato aún no ha subido un archivo original de CV.",
@@ -334,5 +343,8 @@ async def get_candidate_cv_presigned_url(
     return {
         "profile_id": str(profile_id),
         "cv_url": presigned_url,
+        "cv_text": profile.cv_text,
+        "full_name": profile.full_name,
+        "skills": profile.skills,
         "expires_in_seconds": settings.s3_presigned_url_expire_seconds,
     }

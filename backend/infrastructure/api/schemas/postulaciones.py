@@ -29,6 +29,8 @@ class PostulacionResponse(BaseModel):
     candidato_location: str | None = None
     candidato_phone: str | None = None
     candidato_user_id: UUID | None = None
+    candidato_cv_url: str | None = None
+    candidato_cv_text: str | None = None
     vacante_titulo: str | None = None
     empresa_nombre: str | None = None
     vacante_ubicacion: str | None = None
