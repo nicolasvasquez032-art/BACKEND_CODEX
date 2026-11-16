@@ -7,6 +7,8 @@ from application.ports.notificacion_ports import PushNotificationPort
 
 logger = logging.getLogger(__name__)
 
+from pathlib import Path
+
 # Intentar inicializar Firebase Admin SDK vía variable de entorno (Factor III) o archivo local.
 try:
     if not firebase_admin._apps:
@@ -18,11 +20,19 @@ try:
             firebase_admin.initialize_app(cred)
             logger.info("[FCM] Firebase Admin SDK inicializado desde variable de entorno (Factor III).")
         else:
-            firebase_cred_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "firebase-adminsdk.json")
-            if os.path.exists(firebase_cred_path):
-                cred = credentials.Certificate(firebase_cred_path)
+            base_dir = Path(__file__).resolve().parent.parent.parent
+            possible_cred_paths = [
+                os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"),
+                str(base_dir / "firebase-adminsdk.json"),
+                "/home/ubuntu/BACKEND_CODEX/backend/firebase-adminsdk.json",
+                "firebase-adminsdk.json",
+                "backend/firebase-adminsdk.json",
+            ]
+            valid_path = next((p for p in possible_cred_paths if p and os.path.exists(p)), None)
+            if valid_path:
+                cred = credentials.Certificate(valid_path)
                 firebase_admin.initialize_app(cred)
-                logger.info("[FCM] Firebase Admin SDK inicializado desde archivo local.")
+                logger.info(f"[FCM] Firebase Admin SDK inicializado desde: {valid_path}")
             else:
                 logger.warning("[FCM] Advertencia: No se detectaron credenciales de Firebase. Notificaciones push simuladas.")
 except Exception as e:
