@@ -40,6 +40,7 @@ class Settings(BaseSettings):
 
     # URL base del frontend (para enlaces de reset de contraseña)
     frontend_url: str = Field(default="http://localhost:3000")
+    api_base_url: str = Field(default="https://talentmatch-api.duckdns.org")
 
     # Mercado Pago
     mp_access_token: str = Field(default="")

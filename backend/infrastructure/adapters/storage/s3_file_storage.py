@@ -77,4 +77,5 @@ class S3FileStorageAdapter(FileStoragePort):
                 logger.error(f"Error generando presigned URL en S3 ({e})")
 
         clean_key = Path(file_key).name
-        return f"{settings.frontend_url}/api/v1/cvs/download/{clean_key}"
+        base_url = (getattr(settings, "api_base_url", None) or "https://talentmatch-api.duckdns.org").rstrip("/")
+        return f"{base_url}/api/v1/cvs/download/{clean_key}"

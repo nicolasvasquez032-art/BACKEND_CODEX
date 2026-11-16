@@ -172,7 +172,31 @@ def create_app() -> FastAPI:
     app.include_router(admin_router)
     app.include_router(chat_router)
 
-    from fastapi.responses import HTMLResponse
+    from pathlib import Path
+    from fastapi.responses import FileResponse, HTMLResponse
+
+    @app.get("/api/v1/cvs/download/{file_name}")
+    @app.get("/perfiles/cvs/download/{file_name}")
+    async def download_cv_file(file_name: str):
+        clean_name = Path(file_name).name
+        possible_paths = [
+            Path("uploads/cvs") / clean_name,
+            Path("backend/uploads/cvs") / clean_name,
+            Path("/home/ubuntu/BACKEND_CODEX/backend/uploads/cvs") / clean_name,
+            Path("/home/nicolas-vasquez/Escritorio/BACKEND_CODEX/backend/uploads/cvs") / clean_name,
+        ]
+        target_path = next((p for p in possible_paths if p.exists()), None)
+        if not target_path:
+            raise HTTPException(
+                status_code=404,
+                detail="Archivo de CV no encontrado en el servidor",
+            )
+        return FileResponse(
+            path=str(target_path),
+            filename=clean_name,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'inline; filename="{clean_name}"'},
+        )
 
     @app.get("/", response_class=HTMLResponse)
     async def root():
