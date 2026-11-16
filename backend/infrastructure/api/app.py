@@ -38,22 +38,24 @@ async def lifespan(app: FastAPI):
         await manager.start_redis_listener()
     except Exception as e:
         logger.warning(f"No se pudo iniciar listener distribuido WS: {e}")
-    yield
-    logger.info("Cerrando pools de conexiones y liberando recursos (Graceful Shutdown)...")
     try:
-        from infrastructure.api.websockets_manager import manager
-        await manager.stop_redis_listener()
-    except Exception:
-        pass
-    from infrastructure.adapters.persistence.database import reader_engine, writer_engine
-    await writer_engine.dispose()
-    if reader_engine is not writer_engine:
-        await reader_engine.dispose()
-    try:
-        from infrastructure.adapters.cache.redis_cache_service import RedisCacheService
-        await RedisCacheService.get_instance().close()
-    except Exception:
-        pass
+        yield
+    finally:
+        logger.info("Cerrando pools de conexiones y liberando recursos (Graceful Shutdown)...")
+        try:
+            from infrastructure.api.websockets_manager import manager
+            await manager.stop_redis_listener()
+        except Exception:
+            pass
+        from infrastructure.adapters.persistence.database import reader_engine, writer_engine
+        await writer_engine.dispose()
+        if reader_engine is not writer_engine:
+            await reader_engine.dispose()
+        try:
+            from infrastructure.adapters.cache.redis_cache_service import RedisCacheService
+            await RedisCacheService.get_instance().close()
+        except Exception:
+            pass
 
 
 def create_app() -> FastAPI:
@@ -172,27 +174,44 @@ def create_app() -> FastAPI:
     app.include_router(admin_router)
     app.include_router(chat_router)
 
+    import os
+    import re
     from pathlib import Path
     from fastapi.responses import FileResponse, HTMLResponse
 
     @app.get("/api/v1/cvs/download/{file_name}")
     @app.get("/perfiles/cvs/download/{file_name}")
     async def download_cv_file(file_name: str):
-        clean_name = Path(file_name).name
-        possible_paths = [
-            Path("uploads/cvs") / clean_name,
-            Path("backend/uploads/cvs") / clean_name,
-            Path("/home/ubuntu/BACKEND_CODEX/backend/uploads/cvs") / clean_name,
-            Path("/home/nicolas-vasquez/Escritorio/BACKEND_CODEX/backend/uploads/cvs") / clean_name,
+        clean_name = os.path.basename(file_name)
+        if not re.match(r"^[a-zA-Z0-9_\.-]+\.pdf$", clean_name, re.IGNORECASE) or ".." in file_name or "/" in file_name or "\\" in file_name:
+            raise HTTPException(
+                status_code=400,
+                detail="Nombre de archivo inválido",
+            )
+
+        allowed_dirs = [
+            Path("uploads/cvs").resolve(),
+            Path("backend/uploads/cvs").resolve(),
+            Path("/home/ubuntu/BACKEND_CODEX/backend/uploads/cvs").resolve(),
+            Path("/home/nicolas-vasquez/Escritorio/BACKEND_CODEX/backend/uploads/cvs").resolve(),
         ]
-        target_path = next((p for p in possible_paths if p.exists()), None)
-        if not target_path:
+        target_path: Path | None = None
+        for base_dir in allowed_dirs:
+            candidate = (base_dir / clean_name).resolve()
+            try:
+                if candidate.is_relative_to(base_dir) and candidate.is_file():
+                    target_path = candidate
+                    break
+            except (ValueError, RuntimeError):
+                continue
+
+        if not target_path or not target_path.exists():
             raise HTTPException(
                 status_code=404,
                 detail="Archivo de CV no encontrado en el servidor",
             )
         return FileResponse(
-            path=str(target_path),
+            path=target_path,
             filename=clean_name,
             media_type="application/pdf",
             headers={"Content-Disposition": f'inline; filename="{clean_name}"'},

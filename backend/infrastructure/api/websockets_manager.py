@@ -51,31 +51,38 @@ class ConnectionManager:
             r = aioredis.from_url(settings.redis_url)
             pubsub = r.pubsub()
             await pubsub.subscribe("talentmatch_chat_events")
-            while not self._stop_event.is_set():
+            try:
+                while not self._stop_event.is_set():
+                    try:
+                        message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                        if message and message.get("type") == "message":
+                            data_str = message.get("data")
+                            if isinstance(data_str, bytes):
+                                data_str = data_str.decode("utf-8")
+                            payload = json.loads(data_str)
+                            target_id_str = payload.get("target_user_id")
+                            msg_data = payload.get("data")
+                            if target_id_str and msg_data:
+                                target_uuid = UUID(target_id_str)
+                                ws = self.active_connections.get(target_uuid)
+                                if ws:
+                                    await ws.send_text(json.dumps(msg_data, default=str))
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as e:
+                        logger.debug(f"Error procesando mensaje Redis Pub/Sub: {e}")
+                        await asyncio.sleep(0.5)
+            finally:
                 try:
-                    message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
-                    if message and message.get("type") == "message":
-                        data_str = message.get("data")
-                        if isinstance(data_str, bytes):
-                            data_str = data_str.decode("utf-8")
-                        payload = json.loads(data_str)
-                        target_id_str = payload.get("target_user_id")
-                        msg_data = payload.get("data")
-                        if target_id_str and msg_data:
-                            target_uuid = UUID(target_id_str)
-                            ws = self.active_connections.get(target_uuid)
-                            if ws:
-                                await ws.send_text(json.dumps(msg_data, default=str))
-                except asyncio.CancelledError:
-                    break
-                except Exception as e:
-                    logger.debug(f"Error procesando mensaje Redis Pub/Sub: {e}")
-                    await asyncio.sleep(0.5)
-            await pubsub.unsubscribe("talentmatch_chat_events")
-            await pubsub.close()
-            await r.close()
+                    await pubsub.unsubscribe("talentmatch_chat_events")
+                    await pubsub.close()
+                    await r.close()
+                except Exception:
+                    pass
         except ImportError:
             pass
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
             logger.warning(f"Error en listener Redis Pub/Sub: {e}")
 

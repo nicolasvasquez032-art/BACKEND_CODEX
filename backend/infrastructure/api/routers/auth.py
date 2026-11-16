@@ -1,3 +1,5 @@
+import html
+import re
 import secrets
 import time
 from uuid import UUID
@@ -590,12 +592,14 @@ async def oauth_callback(
     callback_url = f"{str(request.base_url).rstrip('/')}/auth/oauth/{provider}/callback"
 
     if error:
+        safe_provider = html.escape(re.sub(r"[^a-zA-Z0-9_\-\. ]", "", provider.capitalize()))
+        safe_error = html.escape(re.sub(r"[^a-zA-Z0-9_\-\. ]", "", error))
         return HTMLResponse(
             f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Error</title></head>
             <body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; background: #0f172a; color: white;">
               <div style="text-align: center; max-width: 400px; padding: 20px;">
                 <h2 style="color: #ef4444;">Inicio de sesión cancelado</h2>
-                <p>El proveedor {provider.capitalize()} no autorizó el acceso: {error}</p>
+                <p>El proveedor {safe_provider} no autorizó el acceso: {safe_error}</p>
                 <button onclick="window.close()" style="background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Cerrar ventana</button>
               </div>
             </body></html>""",
