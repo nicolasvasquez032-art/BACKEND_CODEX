@@ -36,3 +36,17 @@ class CVUploadResponse(BaseModel):
     message: str
     cv_preview: str  # Primeros 200 caracteres del texto extraído
     cv_download_url: str | None = None
+
+
+class CandidateCvUrlResponse(BaseModel):
+    profile_id: str
+    cv_url: str | None = None
+    cv_text: str | None = None
+    full_name: str | None = None
+    skills: list[str] = Field(default_factory=list)
+    expires_in_seconds: int = 900
+
+    def __getitem__(self, item: str):
+        return getattr(self, item)
+
+

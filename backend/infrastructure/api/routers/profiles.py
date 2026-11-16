@@ -23,6 +23,7 @@ from infrastructure.adapters.persistence.user_repository import SqlAlchemyUserRe
 from infrastructure.adapters.storage.s3_file_storage import S3FileStorageAdapter
 from infrastructure.api.dependencies import get_current_user, get_cv_parser
 from infrastructure.api.schemas.profiles import (
+    CandidateCvUrlResponse,
     CVUploadResponse,
     ProfileResponse,
     ProfileUpdateRequest,
@@ -298,12 +299,12 @@ async def upload_cv(
     )
 
 
-@router.get("/{profile_id}/cv-url")
+@router.get("/{profile_id}/cv-url", response_model=CandidateCvUrlResponse)
 async def get_candidate_cv_presigned_url(
     profile_id: UUID,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_read_session),
-) -> dict[str, str | int]:
+) -> CandidateCvUrlResponse:
     """Genera una URL temporal prefirmada (Presigned URL) de AWS S3 válida por 15 minutos.
 
     Permite a empresas o al propio candidato descargar/visualizar el archivo original con seguridad.
@@ -322,14 +323,14 @@ async def get_candidate_cv_presigned_url(
 
     if not profile.cv_file_url:
         if profile.cv_text and profile.cv_text.strip():
-            return {
-                "profile_id": str(profile_id),
-                "cv_url": None,
-                "cv_text": profile.cv_text,
-                "full_name": profile.full_name,
-                "skills": profile.skills,
-                "expires_in_seconds": settings.s3_presigned_url_expire_seconds,
-            }
+            return CandidateCvUrlResponse(
+                profile_id=str(profile_id),
+                cv_url=None,
+                cv_text=profile.cv_text,
+                full_name=profile.full_name,
+                skills=profile.skills or [],
+                expires_in_seconds=settings.s3_presigned_url_expire_seconds,
+            )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="El candidato aún no ha subido un archivo original de CV.",
@@ -340,11 +341,11 @@ async def get_candidate_cv_presigned_url(
         profile.cv_file_url,
         expires_in_seconds=settings.s3_presigned_url_expire_seconds,
     )
-    return {
-        "profile_id": str(profile_id),
-        "cv_url": presigned_url,
-        "cv_text": profile.cv_text,
-        "full_name": profile.full_name,
-        "skills": profile.skills,
-        "expires_in_seconds": settings.s3_presigned_url_expire_seconds,
-    }
+    return CandidateCvUrlResponse(
+        profile_id=str(profile_id),
+        cv_url=presigned_url,
+        cv_text=profile.cv_text,
+        full_name=profile.full_name,
+        skills=profile.skills or [],
+        expires_in_seconds=settings.s3_presigned_url_expire_seconds,
+    )
