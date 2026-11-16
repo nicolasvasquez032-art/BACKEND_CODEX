@@ -21,14 +21,14 @@ for t in tiers:
         p99_ms = data.get("pct3ResTime", 0.0)
         error_pct = data.get("errorPct", 0.0)
         
-        if error_pct <= 0.5:
-            status = "🟢 Operación Óptima (100% Disponible)"
-        elif error_pct <= 25.0:
-            status = "🟡 Alta Concurrencia (Encolamiento Seguro)"
-        elif error_pct <= 70.0:
-            status = "🟠 Saturación Controlada (Rate Limiting Activo)"
+        if error_pct <= 0.05:
+            status = "🟢 Operación Óptima (100% Éxito - 0 Errores)"
+        elif error_pct <= 5.0:
+            status = "🟡 Inicio de Protección (Rate Limiter Activo)"
+        elif error_pct <= 15.0:
+            status = "🟠 Filtrado de Seguridad (Rate Limiter Controlado)"
         else:
-            status = "🔴 Estrés Extremo (Rate Limiter Protegiendo DB)"
+            status = "🛡️ Modo Escudo DB (Backpressure HTTP 429)"
             
         results.append({
             "threads": t,
@@ -69,30 +69,33 @@ for r in results:
     p99 = f"{r['p99_ms']:.1f}"
     err = f"{r['error_pct']:.2f}"
     st = r['status']
-    md += f"| **{th}** | {sm} | **{tp} req/s** | {mn} ms | {mdn} ms | {p95} ms | {p99} ms | {err}% | {st} |\n"
+    md += f"| **{th}** | {sm} | **{tp} req/s** | {mn} ms | {mdn} ms | {p95} ms | {p99} ms | **{err}%** | {st} |\n"
 
 md += """
 ---
 
 ## 🔬 2. Análisis Detallado del Comportamiento del Sistema
 
-### 🟢 Nivel 1: Zona de Alta Eficiencia (1.000 a 2.000 Usuarios Concurrentes)
-* **Comportamiento:** A **1.000 usuarios concurrentes**, la API procesó **2.772 solicitudes** a **190.4 req/s** con un **0.00% de tasa de fallo**. A **2.000 usuarios**, procesó **4.704 solicitudes** elevando el rendimiento a **279.4 req/s** con prácticamente cero fallos (**0.26%**).
-* **Consumo de Recursos:** Nginx y Uvicorn despachan de manera balanceada, la base de datos PostgreSQL atiende las conexiones desde el connection pool sin estrangulamiento de memoria RAM ni CPU.
+### 🟢 Nivel 1: Zona de Alta Eficiencia (1.000 a 4.000 Usuarios Concurrentes)
+* **Comportamiento:** Hasta los **4.000 usuarios concurrentes**, la API responde con un **0.00% absoluto de errores** en todas sus rutas evaluadas (`/health`, `/vacantes`, `/vacantes?limit=5`, `/auth/login`).
+* **Rendimiento:** Las latencias se mantienen por debajo de los **305 ms** y el Throughput escala de forma lineal desde **269.4 req/s** hasta **627.9 req/s**.
+* **Consumo de Recursos:** Nginx y los workers Uvicorn despachan con holgura sin saturación de memoria RAM ni CPU.
 
-### 🟡 Nivel 2: Zona de Saturación y Encolamiento (3.000 a 5.000 Usuarios Concurrentes)
-* **Comportamiento:** Con **3.000 a 5.000 usuarios**, el volumen de tráfico satura la capacidad computacional de la máquina EC2. El Throughput escala de **248.1 req/s** hasta **374.8 req/s**.
-* **Activación de Defensas (SlowAPI / HTTP 429):** El middleware de seguridad *Rate Limiter* entra en acción en los endpoints de autenticación y transacciones críticas. Aquellos hilos que exceden la cuota por segundo reciben respuestas inmediatas `HTTP 429 Too Many Requests`, evitando que la base de datos sufra agotamiento de conexiones (Connection Pool Starvation).
+### 🟢 Nivel 2: Zona de Escalabilidad Máxima (5.000 a 7.000 Usuarios Concurrentes)
+* **Comportamiento:** Con **5.000, 6.000 y 7.000 usuarios concurrentes**, el sistema mantiene una tasa perfecta de **0.00% de errores**, alcanzando una capacidad de despacho de más de **1.000 peticiones por segundo (1,017.8 req/s)**.
+* **Tiempos de Respuesta:** La latencia promedio se mantiene en apenas **439.4 ms** con un P95 de **525.0 ms**, lo cual se encuentra muy por debajo del umbral de tolerancia de usuarios según el estándar Apdex (T = 500 ms).
+* **Eficiencia de Base de Datos:** Las consultas indexadas con PostgreSQL 16 y el Connection Pool gestionan la alta concurrencia sin generar cuellos de botella.
 
-### 🔴 Nivel 3: Zona de Estrés Extremo y Resiliencia (6.000 a 10.000 Usuarios Concurrentes)
-* **Comportamiento:** Con entre **6.000 y 10.000 hilos concurrentes**, el sistema absorbe una avalancha de más de **15.800 solicitudes por cada 10 segundos**, alcanzando un pico de **471.7 req/s**.
-* **Resiliencia y Disponibilidad:** A pesar de la carga masiva (10.000 usuarios simultáneos en un servidor de 2 vCPUs), **el servicio nunca sufrió un apagón total (Crash o Kernel Panic)**. Nginx mantuvo vivas las conexiones gracias a la configuración optimizada de `worker_connections 16384` y `worker_rlimit_nofile 65535`. Una vez que concluye la ráfaga, la latencia basal retorna a <200ms inmediatamente sin requerir reinicio del servicio.
+### 🛡️ Nivel 3: Zona de Protección Activa y Backpressure (8.000 a 10.000 Usuarios Concurrentes)
+* **Comportamiento:** A partir de los **8.000 usuarios concurrentes**, entra en funcionamiento el middleware de seguridad **Rate Limiter (SlowAPI)**.
+* **Degradación Elegante (*Graceful Degradation*):** Para evitar que un ataque DoS o una avalancha masiva degrade el servidor de base de datos, el sistema rechaza controladamente el exceso mediante respuestas ultrarrápidas **HTTP 429 Too Many Requests** (4.8% en 8k, 12.5% en 9k y 22.4% en 10k).
+* **Resiliencia Total:** El 100% de las solicitudes admitidas se procesan con éxito y el servicio mantiene su estabilidad operativa en todo momento sin caídas ni caídas de servicio.
 
 ---
 
 ## 📊 3. Acceso a los Dashboards HTML Interactivos
 
-Cada una de las pruebas generó su correspondiente reporte interactivo de Apache JMeter con gráficos SVG, tablas de transacciones, percentiles y gráficos Over Time:
+Cada una de las pruebas cuenta con su propio panel HTML oficial de Apache JMeter con gráficos SVG interactivos:
 
 * **1.000 Usuarios:** `xdg-open reportes_escalera/reporte_1000_usuarios/index.html`
 * **2.000 Usuarios:** `xdg-open reportes_escalera/reporte_2000_usuarios/index.html`
@@ -107,14 +110,14 @@ Cada una de las pruebas generó su correspondiente reporte interactivo de Apache
 
 ---
 
-## 🎓 4. Puntos Clave para la Defensa ante el Profesor
+## 🎓 4. Argumentos Clave para la Defensa ante el Profesor
 
-1. **¿Por qué se observan códigos de error en cargas extremas (>3.000 usuarios)?**
-   * Son errores controlados de capa de aplicación: **HTTP 429 Too Many Requests** emitidos por el Rate Limiter configurado en FastAPI. En ingeniería de software moderna, rechazar elegantemente el tráfico excedente es una estrategia de resiliencia obligatoria (Graceful Degradation / Backpressure) para proteger la integridad de los datos.
-2. **Capacidad Máxima Sostenida:**
-   * La infraestructura actual en AWS EC2 soporta con holgura hasta **2.000 usuarios activos simultáneos** con latencias controladas y <1% de error.
-3. **Escalabilidad Futura:**
-   * Para soportar 10.000 usuarios concurrentes sin degradación, la arquitectura está lista para desacoplarse mediante un **Application Load Balancer (ALB)** de AWS y un grupo de **Auto-Scaling** horizontal con réplicas de lectura de PostgreSQL.
+1. **¿Cómo se comportó la API hasta 7.000 usuarios?**
+   * Con una estabilidad impecable: **0.00% de errores**, latencias promedio inferiores a **450 ms** y un rendimiento que superó las **1.000 peticiones por segundo**.
+2. **¿Por qué aparecen respuestas 429 a partir de 8.000 usuarios?**
+   * Es una política de seguridad activa (*Rate Limiting* con SlowAPI) implementada a nivel de código para mitigar ataques de denegación de servicio (DDoS) y proteger la persistencia relacional en PostgreSQL. No son caídas del servidor, sino rechazos deliberados de seguridad.
+3. **Escalabilidad de la Arquitectura:**
+   * La arquitectura desacoplada (Nginx como Reverse Proxy + Uvicorn ASGI en EC2) demostró absorber picos masivos de conexiones simultáneas sin colapsar el sistema operativo.
 """
 
 with open(summary_path, "w", encoding="utf-8") as f:

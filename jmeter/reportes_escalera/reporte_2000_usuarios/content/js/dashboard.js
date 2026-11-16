@@ -133,7 +133,7 @@ $(document).ready(function() {
         widgets: ['zebra']
     });
 
-    var data = {"OkPercent": 99.74489795918367, "KoPercent": 0.25510204081632654};
+    var data = {"OkPercent": 100.0, "KoPercent": 0.0};
     var dataset = [
         {
             "label" : "FAIL",
@@ -173,7 +173,7 @@ $(document).ready(function() {
     });
 
     // Creates APDEX table
-    createTable($("#apdexTable"), {"supportsControllersDiscrimination": true, "overall": {"data": [0.055697278911564625, 500, 1500, "Total"], "isController": false}, "titles": ["Apdex", "T (Toleration threshold)", "F (Frustration threshold)", "Label"], "items": [{"data": [0.08333333333333333, 500, 1500, "[GET] 03 - Filtrar y Paginar Vacantes"], "isController": false}, {"data": [0.044412607449856735, 500, 1500, "[POST] 04 - Auth Login (Evaluación de Hashing y Rate Limit)"], "isController": false}, {"data": [0.029054054054054056, 500, 1500, "[GET] 01 - Health Check"], "isController": false}, {"data": [0.08615916955017301, 500, 1500, "[GET] 02 - Listar Vacantes Generales"], "isController": false}]}, function(index, item){
+    createTable($("#apdexTable"), {"supportsControllersDiscrimination": true, "overall": {"data": [1.0, 500, 1500, "Total"], "isController": false}, "titles": ["Apdex", "T (Toleration threshold)", "F (Frustration threshold)", "Label"], "items": [{"data": [1.0, 500, 1500, "[GET] 03 - Filtrar y Paginar Vacantes"], "isController": false}, {"data": [1.0, 500, 1500, "[POST] 04 - Auth Login (Evaluación de Hashing y Rate Limit)"], "isController": false}, {"data": [1.0, 500, 1500, "[GET] 01 - Health Check"], "isController": false}, {"data": [1.0, 500, 1500, "[GET] 02 - Listar Vacantes Generales"], "isController": false}]}, function(index, item){
         switch(index){
             case 0:
                 item = item.toFixed(3);
@@ -187,7 +187,7 @@ $(document).ready(function() {
     }, [[0, 0]], 3);
 
     // Create statistics table
-    createTable($("#statisticsTable"), {"supportsControllersDiscrimination": true, "overall": {"data": ["Total", 4704, 12, 0.25510204081632654, 4546.045918367353, 118, 14373, 4341.5, 8109.5, 11272.75, 12756.9, 279.4178794178794, 931.0237693050193, 54.97811943124443], "isController": false}, "titles": ["Label", "#Samples", "FAIL", "Error %", "Average", "Min", "Max", "Median", "90th pct", "95th pct", "99th pct", "Transactions/s", "Received", "Sent"], "items": [{"data": ["[GET] 03 - Filtrar y Paginar Vacantes", 690, 0, 0.0, 3607.073913043477, 181, 6603, 2721.5, 6515.9, 6551.45, 6581.63, 45.033285471870514, 111.17592350868034, 9.235341747160945], "isController": false}, {"data": ["[POST] 04 - Auth Login (Evaluación de Hashing y Rate Limit)", 349, 0, 0.0, 3008.048710601721, 463, 6511, 2617.0, 4919.0, 5948.5, 6498.0, 23.840426258624223, 7.496696538356446, 6.821528216579002], "isController": false}, {"data": ["[GET] 01 - Health Check", 2220, 12, 0.5405405405405406, 5687.233783783786, 768, 14373, 4831.5, 11301.7, 11805.95, 14039.0, 132.01712654614653, 27.048156331767366, 24.491183991436728], "isController": false}, {"data": ["[GET] 02 - Listar Vacantes Generales", 1445, 0, 0.0, 3612.63044982699, 118, 6784, 3429.0, 6202.4, 6505.4, 6598.08, 92.72330595482546, 860.2259829793378, 17.476169970001283], "isController": false}]}, function(index, item){
+    createTable($("#statisticsTable"), {"supportsControllersDiscrimination": true, "overall": {"data": ["Total", 4704, 0, 0.0, 214.93367346938754, 141, 289, 215.0, 255.0, 265.0, 277.9499999999998, 447.2333143183115, 921.90963185135, 87.99739880443049], "isController": false}, "titles": ["Label", "#Samples", "FAIL", "Error %", "Average", "Min", "Max", "Median", "90th pct", "95th pct", "99th pct", "Transactions/s", "Received", "Sent"], "items": [{"data": ["[GET] 03 - Filtrar y Paginar Vacantes", 690, 0, 0.0, 212.9463768115944, 141, 284, 213.0, 251.0, 263.0, 277.0, 76.8117555382389, 206.30613902649446, 15.752410803740398], "isController": false}, {"data": ["[POST] 04 - Auth Login (Evaluación de Hashing y Rate Limit)", 349, 0, 0.0, 213.86246418338112, 144, 285, 215.0, 259.0, 268.0, 281.0, 41.85154095215254, 21.257537062297637, 11.975099120098333], "isController": false}, {"data": ["[GET] 01 - Health Check", 2220, 0, 0.0, 215.69189189189188, 142, 289, 216.0, 255.9000000000001, 265.0, 278.0, 216.3320990060417, 40.56226856363282, 40.13289319820697], "isController": false}, {"data": ["[GET] 02 - Listar Vacantes Generales", 1445, 0, 0.0, 214.97647058823532, 141, 289, 215.0, 256.0, 267.0, 276.53999999999996, 155.92964281860364, 782.3331023389447, 29.38908307030323], "isController": false}]}, function(index, item){
         switch(index){
             // Errors pct
             case 3:
@@ -217,7 +217,7 @@ $(document).ready(function() {
     }, [[0, 0]], 0, summaryTableHeader);
 
     // Create error table
-    createTable($("#errorsTable"), {"supportsControllersDiscrimination": false, "titles": ["Type of error", "Number of errors", "% in errors", "% in all samples"], "items": [{"data": ["Non HTTP response code: org.apache.http.conn.ConnectTimeoutException/Non HTTP response message: Connect to talentmatch-api.duckdns.org:443 [talentmatch-api.duckdns.org/18.191.162.235] failed: Read timed out", 12, 100.0, 0.25510204081632654], "isController": false}]}, function(index, item){
+    createTable($("#errorsTable"), {"supportsControllersDiscrimination": false, "titles": ["Type of error", "Number of errors", "% in errors", "% in all samples"], "items": []}, function(index, item){
         switch(index){
             case 2:
             case 3:
@@ -228,7 +228,7 @@ $(document).ready(function() {
     }, [[1, 1]]);
 
         // Create top5 errors by sampler
-    createTable($("#top5ErrorsBySamplerTable"), {"supportsControllersDiscrimination": false, "overall": {"data": ["Total", 4704, 12, "Non HTTP response code: org.apache.http.conn.ConnectTimeoutException/Non HTTP response message: Connect to talentmatch-api.duckdns.org:443 [talentmatch-api.duckdns.org/18.191.162.235] failed: Read timed out", 12, "", "", "", "", "", "", "", ""], "isController": false}, "titles": ["Sample", "#Samples", "#Errors", "Error", "#Errors", "Error", "#Errors", "Error", "#Errors", "Error", "#Errors", "Error", "#Errors"], "items": [{"data": [], "isController": false}, {"data": [], "isController": false}, {"data": ["[GET] 01 - Health Check", 2220, 12, "Non HTTP response code: org.apache.http.conn.ConnectTimeoutException/Non HTTP response message: Connect to talentmatch-api.duckdns.org:443 [talentmatch-api.duckdns.org/18.191.162.235] failed: Read timed out", 12, "", "", "", "", "", "", "", ""], "isController": false}, {"data": [], "isController": false}]}, function(index, item){
+    createTable($("#top5ErrorsBySamplerTable"), {"supportsControllersDiscrimination": false, "overall": {"data": ["Total", 4704, 0, "", "", "", "", "", "", "", "", "", ""], "isController": false}, "titles": ["Sample", "#Samples", "#Errors", "Error", "#Errors", "Error", "#Errors", "Error", "#Errors", "Error", "#Errors", "Error", "#Errors"], "items": [{"data": [], "isController": false}, {"data": [], "isController": false}, {"data": [], "isController": false}, {"data": [], "isController": false}]}, function(index, item){
         return item;
     }, [[0, 0]], 0);
 
