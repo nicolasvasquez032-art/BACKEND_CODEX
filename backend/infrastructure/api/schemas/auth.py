@@ -19,6 +19,13 @@ class CandidateRegisterRequest(BaseModel):
 class CompanyRegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    nombre: str | None = Field(default=None, max_length=180)
+
+
+class CompanyProfileUpdateRequest(BaseModel):
+    nombre: str = Field(min_length=2, max_length=180)
+    sector: str | None = Field(default=None, max_length=100)
+    ubicacion: str | None = Field(default=None, max_length=180)
 
 
 class LoginRequest(BaseModel):
@@ -30,6 +37,8 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     refresh_token: str | None = None
+    is_new_user: bool = False
+    profile_id: str | None = None
 
 
 class RefreshTokenRequest(BaseModel):
@@ -41,6 +50,7 @@ class UserResponse(BaseModel):
     email: EmailStr
     role: UserRole
     created_at: datetime
+    nombre: str | None = None
 
 
 class CandidateRegisterResponse(BaseModel):

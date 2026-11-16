@@ -110,10 +110,15 @@ def create_app() -> FastAPI:
         detail = exc.detail
         if isinstance(detail, str):
             detail = I18nService.translate_error(detail, lang=lang)
+        headers = dict(exc.headers or {})
+        origin = request.headers.get("origin")
+        if origin and "Access-Control-Allow-Origin" not in headers:
+            headers["Access-Control-Allow-Origin"] = origin
+            headers["Access-Control-Allow-Credentials"] = "true"
         return JSONResponse(
             status_code=exc.status_code,
             content={"detail": detail},
-            headers=exc.headers,
+            headers=headers,
         )
 
     @app.exception_handler(Exception)
@@ -128,9 +133,15 @@ def create_app() -> FastAPI:
         lang = request.headers.get("accept-language")
         detail = "Ha ocurrido un error interno en el servidor. El equipo técnico ha sido notificado."
         detail = I18nService.translate_error(detail, lang=lang)
+        headers = {}
+        origin = request.headers.get("origin")
+        if origin:
+            headers["Access-Control-Allow-Origin"] = origin
+            headers["Access-Control-Allow-Credentials"] = "true"
         return JSONResponse(
             status_code=500,
             content={"detail": detail},
+            headers=headers,
         )
     
     app.add_middleware(
@@ -150,4 +161,20 @@ def create_app() -> FastAPI:
     app.include_router(pagos_router)
     app.include_router(admin_router)
     app.include_router(chat_router)
+
+    from fastapi.responses import HTMLResponse
+
+    @app.get("/", response_class=HTMLResponse)
+    async def root():
+        return HTMLResponse(
+            """<!DOCTYPE html><html><head><meta charset="utf-8"><title>TalentMatch API</title></head>
+            <body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #0f172a; color: white;">
+              <div style="text-align: center;">
+                <h1 style="color: #38bdf8; margin-bottom: 8px;">🚀 TalentMatch API</h1>
+                <p style="color: #94a3b8;">Servicio backend operativo en AWS con HTTPS</p>
+                <a href="/docs" style="display: inline-block; margin-top: 16px; padding: 10px 20px; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">Documentación Swagger</a>
+              </div>
+            </body></html>"""
+        )
+
     return app

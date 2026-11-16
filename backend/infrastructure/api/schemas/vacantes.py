@@ -48,3 +48,4 @@ class VacanteResponse(BaseModel):
     latitud: float | None = None
     longitud: float | None = None
     creado_en: datetime
+    total_postulaciones: int = 0

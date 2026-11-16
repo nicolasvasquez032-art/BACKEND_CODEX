@@ -7,7 +7,7 @@ from infrastructure.config import settings
 
 
 class JwtTokenService:
-    def create_access_token(self, user: User) -> str:
+    def create_access_token(self, user: User, profile_id: str | None = None) -> str:
         expires_at = datetime.now(UTC) + timedelta(
             minutes=settings.jwt_access_token_expire_minutes
         )
@@ -16,6 +16,7 @@ class JwtTokenService:
             "email": user.email,
             "role": user.role.value,
             "is_premium": user.is_premium,
+            "profile_id": profile_id or "",
             "type": "access",
             "exp": expires_at,
         }

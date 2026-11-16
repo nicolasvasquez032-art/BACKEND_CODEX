@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +23,7 @@ from infrastructure.adapters.cache.redis_cache_service import RedisCacheService
 from infrastructure.adapters.fcm_adapter import RealFcmAdapter
 from infrastructure.adapters.ml_client.http_ml_service import HttpMlServiceAdapter
 from infrastructure.adapters.persistence.database import get_read_session, get_session
+from infrastructure.adapters.persistence.models import PostulacionModel
 from infrastructure.adapters.persistence.notificacion_repository import (
     SqlAlchemyNotificacionRepository,
 )
@@ -38,7 +40,7 @@ from infrastructure.config import settings
 router = APIRouter(prefix="/vacantes", tags=["vacantes"])
 
 
-def _to_response(vacante, lang: str | None = None) -> VacanteResponse:
+def _to_response(vacante, lang: str | None = None, total_postulaciones: int = 0) -> VacanteResponse:
     localized = I18nService.translate_vacante_fields(
         titulo=vacante.titulo,
         descripcion=vacante.descripcion,
@@ -61,6 +63,7 @@ def _to_response(vacante, lang: str | None = None) -> VacanteResponse:
         latitud=vacante.latitud,
         longitud=vacante.longitud,
         creado_en=vacante.creado_en,
+        total_postulaciones=total_postulaciones,
     )
 
 
@@ -90,7 +93,17 @@ async def listar_vacantes(
     vacantes = await use_case.execute(
         ListarVacantesQuery(ubicacion=ubicacion, categoria=categoria, offset=offset, limit=limit)
     )
-    result = [_to_response(v, lang=lang) for v in vacantes]
+    vacante_ids = [v.id for v in vacantes]
+    counts_map = {}
+    if vacante_ids:
+        counts_res = await session.execute(
+            select(PostulacionModel.vacante_id, func.count(PostulacionModel.id))
+            .where(PostulacionModel.vacante_id.in_(vacante_ids))
+            .group_by(PostulacionModel.vacante_id)
+        )
+        counts_map = {row[0]: row[1] for row in counts_res.all()}
+
+    result = [_to_response(v, lang=lang, total_postulaciones=counts_map.get(v.id, 0)) for v in vacantes]
 
     # 3. Guardar en Redis de forma asíncrona con TTL de 60 segundos
     await cache.set_json(cache_key, [item.model_dump(mode="json") for item in result], ttl=60)
@@ -112,7 +125,11 @@ async def obtener_vacante(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=I18nService.translate_error("Vacante no encontrada", lang=lang),
         )
-    return _to_response(vacante, lang=lang)
+    post_count_res = await session.execute(
+        select(func.count(PostulacionModel.id)).where(PostulacionModel.vacante_id == vacante_id)
+    )
+    total_post = post_count_res.scalar_one_or_none() or 0
+    return _to_response(vacante, lang=lang, total_postulaciones=total_post)
 
 
 @router.post("", response_model=VacanteResponse, status_code=status.HTTP_201_CREATED)

@@ -24,6 +24,7 @@ from application.use_cases.request_password_reset import (
     RequestPasswordResetCommand,
     RequestPasswordResetUseCase,
 )
+from domain.entities.user import User, UserRole
 from domain.exceptions import (
     EmailAlreadyRegisteredError,
     InvalidCredentialsError,
@@ -31,12 +32,15 @@ from domain.exceptions import (
 )
 from infrastructure.adapters.email.smtp_email_service import SmtpEmailService
 from infrastructure.adapters.persistence.database import get_session
+from infrastructure.adapters.persistence.models import UserModel
 from infrastructure.adapters.persistence.user_repository import SqlAlchemyUserRepository
 from infrastructure.adapters.security import JwtTokenService, PasslibPasswordHasher
+from infrastructure.api.dependencies import get_current_user, require_role
 from infrastructure.api.rate_limiter import limiter
 from infrastructure.api.schemas.auth import (
     CandidateRegisterRequest,
     CandidateRegisterResponse,
+    CompanyProfileUpdateRequest,
     CompanyRegisterRequest,
     ConfirmPasswordResetRequest,
     LoginRequest,
@@ -136,6 +140,10 @@ async def register_company(
         user = await use_case.execute(
             RegisterCompanyCommand(email=payload.email, password=payload.password)
         )
+        if payload.nombre:
+            user_model = await session.get(UserModel, user.id)
+            if user_model:
+                user_model.nombre = payload.nombre.strip()
         await session.commit()
     except (EmailAlreadyRegisteredError, IntegrityError) as exc:
         await session.rollback()
@@ -144,7 +152,28 @@ async def register_company(
             detail="Email is already registered",
         ) from exc
 
-    return UserResponse(id=user.id, email=user.email, role=user.role, created_at=user.created_at)
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        role=user.role,
+        created_at=user.created_at,
+        nombre=payload.nombre.strip() if payload.nombre else None,
+    )
+
+
+@router.patch("/empresa/perfil")
+async def update_company_profile(
+    payload: CompanyProfileUpdateRequest,
+    current_user: User = Depends(require_role(UserRole.COMPANY)),
+    session: AsyncSession = Depends(get_session),
+):
+    """Permite a una empresa actualizar su nombre comercial, sector y ubicación."""
+    user_model = await session.get(UserModel, current_user.id)
+    if not user_model:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+    user_model.nombre = payload.nombre.strip()
+    await session.commit()
+    return {"status": "ok", "nombre": user_model.nombre}
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -172,7 +201,7 @@ async def login(
     return TokenResponse(
         access_token=result.access_token,
         token_type=result.token_type,
-        refresh_token=result.refresh_token,
+        refresh_token=getattr(result, "refresh_token", None),
     )
 
 
@@ -363,15 +392,18 @@ async def social_login(
 
     users = SqlAlchemyUserRepository(session)
     user = await users.find_by_email(email)
+    is_new_user = False
+    profile = None
 
     if not user:
+        is_new_user = True
         from domain.entities.user import UserRole
         hasher = PasslibPasswordHasher()
         dummy_password = secrets.token_urlsafe(24)
         password_hash = hasher.hash(dummy_password)
         try:
             user = await users.create_user(email=email, password_hash=password_hash, role=UserRole.CANDIDATE)
-            await users.create_candidate_profile(
+            profile = await users.create_candidate_profile(
                 user_id=user.id,
                 full_name=name,
                 skills=[],
@@ -389,9 +421,18 @@ async def social_login(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Error al crear usuario vía {provider}: {exc}",
                 )
+    else:
+        try:
+            profile = await users.get_candidate_profile_by_user_id(user.id)
+        except Exception:
+            profile = None
 
+    if profile and (not getattr(profile, 'skills', None) or len(profile.skills) == 0) and not getattr(profile, 'location', None):
+        is_new_user = True
+
+    profile_id_str = str(profile.id) if (profile and hasattr(profile, 'id') and profile.id) else None
     token_service = JwtTokenService()
-    access_token = token_service.create_access_token(user)
+    access_token = token_service.create_access_token(user, profile_id=profile_id_str)
     refresh_token = token_service.create_refresh_token(user)
 
     logger.info(f"Inicio de sesión exitoso vía {provider} para {email}")
@@ -399,6 +440,8 @@ async def social_login(
         access_token=access_token,
         token_type="bearer",
         refresh_token=refresh_token,
+        is_new_user=is_new_user,
+        profile_id=profile_id_str,
     )
 
 
@@ -599,15 +642,18 @@ async def oauth_callback(
 
     users = SqlAlchemyUserRepository(session)
     user = await users.find_by_email(email)
+    is_new_user = False
+    profile = None
 
     if not user:
+        is_new_user = True
         from domain.entities.user import UserRole
         hasher = PasslibPasswordHasher()
         dummy_password = secrets.token_urlsafe(24)
         password_hash = hasher.hash(dummy_password)
         try:
             user = await users.create_user(email=email, password_hash=password_hash, role=UserRole.CANDIDATE)
-            await users.create_candidate_profile(
+            profile = await users.create_candidate_profile(
                 user_id=user.id,
                 full_name=name,
                 skills=[],
@@ -619,9 +665,18 @@ async def oauth_callback(
         except Exception:
             await session.rollback()
             user = await users.find_by_email(email)
+    else:
+        try:
+            profile = await users.get_candidate_profile_by_user_id(user.id)
+        except Exception:
+            profile = None
 
+    if profile and (not getattr(profile, 'skills', None) or len(profile.skills) == 0) and not getattr(profile, 'location', None):
+        is_new_user = True
+
+    profile_id_str = str(profile.id) if (profile and hasattr(profile, 'id') and profile.id) else None
     token_service = JwtTokenService()
-    access_token = token_service.create_access_token(user)
+    access_token = token_service.create_access_token(user, profile_id=profile_id_str)
     refresh_token = token_service.create_refresh_token(user)
 
     session_id: str | None = None
@@ -641,6 +696,8 @@ async def oauth_callback(
             "refreshToken": refresh_token,
             "email": email,
             "provider": provider,
+            "is_new_user": is_new_user,
+            "profile_id": profile_id_str,
             "created_at": time.time(),
         }
 
@@ -655,14 +712,14 @@ async def oauth_callback(
             <p style="color: #cbd5e1; font-size: 14px; margin: 0 0 6px;">Conectado vía {provider.capitalize()} como:</p>
             <p style="color: #f8fafc; font-size: 15px; font-weight: 600; margin: 0 0 16px;">{email}</p>
             <p style="color: #94a3b8; font-size: 13px; line-height: 1.4; margin: 0 0 20px;">Tu sesión se ha sincronizado. Ya puedes cerrar esta ventana y regresar a la aplicación <b>TalentMatch</b>.</p>
-            <a href="talentmatch://oauth-callback?token={access_token}&refresh={refresh_token}&provider={provider}" style="display: inline-block; padding: 12px 28px; background: #2563eb; color: white; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 14px;">Volver a la App TalentMatch</a>
+            <a href="talentmatch://oauth-callback?token={access_token}&refresh={refresh_token}&provider={provider}&is_new_user={is_new_user}&profile_id={profile_id_str or ''}" style="display: inline-block; padding: 12px 28px; background: #2563eb; color: white; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 14px;">Volver a la App TalentMatch</a>
           </div>
           <script>
             const token = '{access_token}';
             const refresh = '{refresh_token}';
             const target = '{target_redirect}';
             const separator = target.includes('?') ? '&' : '?';
-            const destination = target + separator + 'token=' + encodeURIComponent(token) + '&refresh=' + encodeURIComponent(refresh) + '&provider={provider}';
+            const destination = target + separator + 'token=' + encodeURIComponent(token) + '&refresh=' + encodeURIComponent(refresh) + '&provider={provider}&is_new_user={str(is_new_user).lower()}&profile_id={profile_id_str or ""}';
 
             try {{
               if (window.opener && window.opener !== window) {{
@@ -672,14 +729,26 @@ async def oauth_callback(
                     token: token,
                     refreshToken: refresh,
                     email: '{email}',
-                    provider: '{provider}'
+                    provider: '{provider}',
+                    is_new_user: {str(is_new_user).lower()},
+                    profile_id: '{profile_id_str or ""}'
                   }}, '*');
                 }} catch (e) {{}}
                 try {{
-                  window.opener.location.href = destination;
+                  window.opener.postMessage(JSON.stringify({{
+                    type: 'TALENTMATCH_AUTH_SUCCESS',
+                    token: token,
+                    refreshToken: refresh,
+                    email: '{email}',
+                    provider: '{provider}',
+                    is_new_user: {str(is_new_user).lower()},
+                    profile_id: '{profile_id_str or ""}'
+                  }}), '*');
                 }} catch (e) {{}}
-                setTimeout(() => window.close(), 600);
-              }} else if (target && target !== '/') {{
+                setTimeout(() => {{
+                  try {{ window.close(); }} catch (e) {{}}
+                }}, 400);
+              }} else if (!{str(bool(session_id)).lower()} && target && target !== '/' && !target.includes('talentmatch-api.duckdns.org')) {{
                 window.location.href = destination;
               }}
             }} catch (e) {{}}
@@ -705,9 +774,11 @@ async def get_oauth_session(session_id: str) -> dict:
     return {
         "status": "completed",
         "token": data["token"],
-        "refreshToken": data["refreshToken"],
-        "email": data["email"],
-        "provider": data["provider"],
+        "refreshToken": data.get("refreshToken"),
+        "email": data.get("email"),
+        "provider": data.get("provider"),
+        "is_new_user": data.get("is_new_user", False),
+        "profile_id": data.get("profile_id"),
     }
 
 

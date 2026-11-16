@@ -18,4 +18,5 @@ class User:
     role: UserRole
     created_at: datetime
     is_premium: bool = False
+    nombre: str | None = None
 

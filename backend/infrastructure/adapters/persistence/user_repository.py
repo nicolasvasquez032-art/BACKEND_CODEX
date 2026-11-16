@@ -178,6 +178,7 @@ class SqlAlchemyUserRepository:
             role=model.role,
             is_premium=model.is_premium,
             created_at=model.created_at,
+            nombre=getattr(model, "nombre", None),
         )
 
     @staticmethod

@@ -33,6 +33,7 @@ class UserModel(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
+    nombre: Mapped[str | None] = mapped_column(String(180), nullable=True)
 
     candidate_profile: Mapped["CandidateProfileModel | None"] = relationship(
         back_populates="user", cascade="all, delete-orphan"

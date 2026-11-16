@@ -216,7 +216,19 @@ async def upload_cv(
 
     # 🛡️ VALIDACIÓN DE SEGURIDAD OWASP (MIME Type)
     ALLOWED_MIMES = {"application/pdf", "image/jpeg", "image/png", "image/webp"}
-    if file.content_type not in ALLOWED_MIMES:
+    content_type = file.content_type
+    if content_type == "application/octet-stream" or not content_type:
+        ext = (file.filename or "").lower().split(".")[-1]
+        if ext == "pdf":
+            content_type = "application/pdf"
+        elif ext in ("jpg", "jpeg"):
+            content_type = "image/jpeg"
+        elif ext == "png":
+            content_type = "image/png"
+        elif ext == "webp":
+            content_type = "image/webp"
+
+    if content_type not in ALLOWED_MIMES:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail=f"Formato de archivo peligroso o no permitido: {file.content_type}. Solo se aceptan PDF o Imágenes.",
@@ -231,7 +243,7 @@ async def upload_cv(
             detail="El archivo excede el límite de 5MB.",
         )
 
-    mime_type = file.content_type
+    mime_type = content_type
     
     storage = S3FileStorageAdapter()
     repo = SqlAlchemyUserRepository(session)
