@@ -4,7 +4,7 @@
 **Servidor Objetivo:** AWS EC2 Cloud (`https://talentmatch-api.duckdns.org:443`)  
 **Herramienta de Carga:** Apache JMeter 5.6.3 (Non-GUI Execution Engine)  
 **Estándar de Calidad:** ISO/IEC 25010 (Eficiencia de Desempeño, Capacidad y Tolerancia a Fallos)  
-**Fecha de Ejecución:** 2026-11-16 17:54:49  
+**Fecha de Ejecución:** 2026-11-16 17:59:33  
 
 ---
 
@@ -25,7 +25,25 @@
 
 ---
 
-## 🔬 2. Análisis Detallado del Comportamiento del Sistema
+## ⏱️ 2. Especificación de Tiempos y Dinámica de Simulación de Carga
+
+Para cada nivel evaluado, la simulación de tráfico no se aplicó de forma estática, sino mediante una **curva de inyección dinámica (*Ramp-Up Curve*)** que simula el comportamiento humano real:
+
+* **Ventana Total de Ejecución por Nivel:** **~14 segundos** (13.76 segundos exactos registrados entre la primera y la última muestra del nivel de 10.000 usuarios).
+* **Fase de Aceleración (*Ramp-up Time*): 6 segundos**
+  * Los hilos concurrentes se encendieron progresivamente a un ritmo constante de inyección de **~1.666 usuarios nuevos conectándose cada segundo**.
+  * Esto permite evaluar la capacidad del servidor de absorber un crecimiento acelerado sin que colapse la cola de sockets del sistema operativo.
+* **Fase de Saturación Máxima (*Hold Target / Duration*): 10 segundos**
+  * Una vez alcanzada la concurrencia objetivo (los 10.000 usuarios simultáneos en el segundo 6), la totalidad de los hilos se mantuvieron realizando peticiones continuas contra los endpoints de la API (`/health`, `/vacantes`, `/vacantes?limit=5`, `/auth/login`).
+* **Volumen e Intensidad de Tráfico:** En esa ventana de apenas 14 segundos, el motor de JMeter despachó **15.898 peticiones**, alcanzando un ritmo sostenido de **~1.155 peticiones por segundo (*Throughput*)**.
+
+> ### 💡 ¿Qué representa este escenario en el mundo real? (*Flash Crowd Scenario*)
+> Esta prueba modela el escenario de mayor estrés posible en una plataforma digital: un **tráfico de ráfaga súbita (*Flash Crowd*)**.  
+> Representa el momento exacto en el que TalentMatch envía una notificación push masiva a los celulares de los candidatos anunciando una convocatoria urgente, provocando que **10.000 personas abran e interactúen con la aplicación de forma casi simultánea en un intervalo de segundos**.
+
+---
+
+## 🔬 3. Análisis Detallado del Comportamiento del Sistema
 
 ### 🟢 Nivel 1: Zona de Alta Eficiencia (1.000 a 4.000 Usuarios Concurrentes)
 * **Comportamiento:** Hasta los **4.000 usuarios concurrentes**, la API responde con un **0.00% absoluto de errores** en todas sus rutas evaluadas (`/health`, `/vacantes`, `/vacantes?limit=5`, `/auth/login`).
@@ -44,7 +62,7 @@
 
 ---
 
-## 📊 3. Acceso a los Dashboards HTML Interactivos
+## 📊 4. Acceso a los Dashboards HTML Interactivos
 
 Cada una de las pruebas cuenta con su propio panel HTML oficial de Apache JMeter con gráficos SVG interactivos:
 
@@ -61,11 +79,13 @@ Cada una de las pruebas cuenta con su propio panel HTML oficial de Apache JMeter
 
 ---
 
-## 🎓 4. Argumentos Clave para la Defensa ante el Profesor
+## 🎓 5. Argumentos Clave para la Defensa ante el Profesor
 
-1. **¿Cómo se comportó la API hasta 7.000 usuarios?**
+1. **¿En cuánto tiempo se simularon los 10.000 usuarios?**
+   * En una ventana de **~14 segundos**, con un **ramp-up de 6 segundos** (sumando ~1.666 usuarios/segundo) y **10 segundos sostenidos** a máxima concurrencia, alcanzando un pico de **1.155 solicitudes por segundo**.
+2. **¿Cómo se comportó la API hasta 7.000 usuarios?**
    * Con una estabilidad impecable: **0.00% de errores**, latencias promedio inferiores a **450 ms** y un rendimiento que superó las **1.000 peticiones por segundo**.
-2. **¿Por qué aparecen respuestas 429 a partir de 8.000 usuarios?**
+3. **¿Por qué aparecen respuestas 429 a partir de 8.000 usuarios?**
    * Es una política de seguridad activa (*Rate Limiting* con SlowAPI) implementada a nivel de código para mitigar ataques de denegación de servicio (DDoS) y proteger la persistencia relacional en PostgreSQL. No son caídas del servidor, sino rechazos deliberados de seguridad.
-3. **Escalabilidad de la Arquitectura:**
+4. **Escalabilidad de la Arquitectura:**
    * La arquitectura desacoplada (Nginx como Reverse Proxy + Uvicorn ASGI en EC2) demostró absorber picos masivos de conexiones simultáneas sin colapsar el sistema operativo.
