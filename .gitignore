@@ -16,3 +16,8 @@ venv/
 postgres_data/
 uploads/
 
+# JMeter logs and raw JTL files
+*.jtl
+jmeter/*.log
+
+
