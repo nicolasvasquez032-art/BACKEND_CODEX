@@ -32,6 +32,7 @@ class Vacante:
     categoria: str | None = None
     latitud: float | None = None
     longitud: float | None = None
+    es_destacada: bool = False
     # El embedding se rellena en Sprint 3; None hasta entonces
     embedding: list[float] | None = field(default=None, compare=False, hash=False)
 

@@ -72,10 +72,16 @@ class Settings(BaseSettings):
     def validate_production_secrets(self) -> "Settings":
         """Garantiza el cumplimiento estricto del Factor III en producción."""
         if self.environment.lower() == "production":
-            if self.jwt_secret_key == "change-me-in-development":
+            insecure_defaults = [
+                "change-me-in-development",
+                "change-me-in-development-super-secret-key-talentmatch",
+                "secret",
+                "password",
+            ]
+            if self.jwt_secret_key in insecure_defaults or len(self.jwt_secret_key) < 32:
                 raise ValueError(
                     "Error de seguridad (12-Factor App - Factor III): JWT_SECRET_KEY "
-                    "debe definirse en las variables de entorno de producción."
+                    "debe ser una clave segura de al menos 32 caracteres (256 bits) definida en producción."
                 )
         return self
 

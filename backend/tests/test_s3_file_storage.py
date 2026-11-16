@@ -238,7 +238,8 @@ async def test_obtener_recomendaciones_fallback():
     fake_user = User(id=uuid.uuid4(), email="u@test.com", password_hash="h", role=UserRole.CANDIDATE, created_at=datetime.now())
 
     with patch("application.use_cases.get_recomendaciones.GetRecomendacionesUseCase.execute", side_effect=Exception("ML timeout")), \
-         patch("infrastructure.adapters.persistence.vacante_repository.SqlAlchemyVacanteRepository.list_activas", new_callable=AsyncMock) as mock_list:
+         patch("infrastructure.adapters.persistence.vacante_repository.SqlAlchemyVacanteRepository.list_activas", new_callable=AsyncMock) as mock_list, \
+         patch("infrastructure.adapters.persistence.vacante_repository.SqlAlchemyVacanteRepository.find_by_id", new_callable=AsyncMock) as mock_find:
         fake_vacante = Vacante(
             id=uuid.uuid4(),
             empresa_id=uuid.uuid4(),
@@ -250,6 +251,7 @@ async def test_obtener_recomendaciones_fallback():
             creado_en=datetime.now(),
         )
         mock_list.return_value = [fake_vacante]
+        mock_find.return_value = fake_vacante
 
         res = await obtener_recomendaciones(uuid.uuid4(), request=mock_request, current_user=fake_user, session=mock_session)
         assert len(res) == 1

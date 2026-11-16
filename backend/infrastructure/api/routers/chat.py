@@ -293,11 +293,11 @@ async def list_user_rooms(
         display_last_msg = last_msg.content if last_msg else None
         if display_last_msg:
             if display_last_msg.startswith("[VIDEOCALL]:"):
-                display_last_msg = "📹 Invitación a Videollamada"
+                display_last_msg = "Invitación a videollamada"
             elif display_last_msg.startswith("[INTERVIEW_SCHEDULED]:"):
                 parts = display_last_msg.split("|")
                 fecha = parts[2] if len(parts) > 2 else ""
-                display_last_msg = f"📅 Entrevista programada: {fecha}"
+                display_last_msg = f"Entrevista programada: {fecha}"
 
         items.append(
             RoomListItem(
@@ -380,7 +380,7 @@ async def send_message(
         notif = NotificacionModel(
             usuario_id=recipient_id,
             tipo="chat_mensaje",
-            mensaje=f"💬 {sender_type} te ha enviado un mensaje.",
+            mensaje=f"{sender_type} te ha enviado un mensaje.",
             leido=False,
         )
         session.add(notif)
@@ -412,7 +412,7 @@ async def send_message(
         for dev_token in tokens_res.scalars().all():
             await fcm.send_notification(
                 token=dev_token,
-                title="💬 Nuevo mensaje en TalentMatch",
+                title="Nuevo mensaje en TalentMatch",
                 body=content[:80],
                 data={"tipo": "chat", "room_id": str(room_id)},
             )
@@ -459,7 +459,7 @@ async def iniciar_videollamada_chat(
         notif = NotificacionModel(
             usuario_id=room.candidato_id,
             tipo="videollamada",
-            mensaje=f"📹 Invitación a videollamada de entrevista: {titulo}",
+            mensaje=f"Invitación a videollamada de entrevista: {titulo}",
             leido=False,
         )
         session.add(notif)
@@ -491,7 +491,7 @@ async def iniciar_videollamada_chat(
         for dev_token in tokens_res.scalars().all():
             await fcm.send_notification(
                 token=dev_token,
-                title="📹 ¡Invitación a Videollamada!",
+                title="Invitación a Videollamada",
                 body=f"La empresa te ha invitado a una entrevista en vivo: {titulo}",
                 data={
                     "tipo": "videollamada",
@@ -549,7 +549,7 @@ async def programar_entrevista_chat(
         notif = NotificacionModel(
             usuario_id=room.candidato_id,
             tipo="entrevista_programada",
-            mensaje=f"📅 Entrevista programada para el {fecha_hora}: {titulo}",
+            mensaje=f"Entrevista programada para el {fecha_hora}: {titulo}",
             leido=False,
         )
         session.add(notif)
@@ -581,7 +581,7 @@ async def programar_entrevista_chat(
         for dev_token in tokens_res.scalars().all():
             await fcm.send_notification(
                 token=dev_token,
-                title="📅 ¡Entrevista Programada!",
+                title="Entrevista Programada",
                 body=f"{titulo} agendada para el {fecha_hora}",
                 data={
                     "tipo": "entrevista_programada",

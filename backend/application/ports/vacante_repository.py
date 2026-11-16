@@ -28,6 +28,7 @@ class VacanteRepositoryPort(Protocol):
         self,
         ubicacion: str | None = None,
         categoria: str | None = None,
+        query: str | None = None,
         offset: int = 0,
         limit: int = 20,
     ) -> list[Vacante]:

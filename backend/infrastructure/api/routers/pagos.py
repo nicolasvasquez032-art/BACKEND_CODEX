@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from infrastructure.adapters.persistence.database import get_session
 from infrastructure.adapters.persistence.user_repository import SqlAlchemyUserRepository
+from infrastructure.api.dependencies import require_role
+from domain.entities.user import User, UserRole
 from infrastructure.config import settings
 
 router = APIRouter(prefix="/pagos", tags=["pagos"])
@@ -66,12 +68,19 @@ class PlanProRequest(BaseModel):
 
 
 @router.post("/crear-preferencia-pro")
-async def crear_preferencia_pro(request: PlanProRequest):
+async def crear_preferencia_pro(
+    request: PlanProRequest,
+    current_user: User = Depends(require_role(UserRole.COMPANY)),
+):
     """Crea una preferencia de pago en Mercado Pago para la suscripción PRO.
 
     Retorna el init_point (URL) a la que el Frontend redirigirá al usuario.
     """
     sdk = _get_mp_sdk()
+
+    # Garantizar que la empresa solo pueda generar preferencias para su propia cuenta
+    empresa_id = str(current_user.id) if current_user else request.empresa_id
+    payer_email = (current_user.email if current_user else request.email) or request.email
 
     base_url = settings.mp_back_url_base.rstrip("/")
     preference_data = {
@@ -84,7 +93,7 @@ async def crear_preferencia_pro(request: PlanProRequest):
             }
         ],
         "payer": {
-            "email": request.email,
+            "email": payer_email,
         },
         "back_urls": {
             "success": f"{base_url}/pagos/success",
@@ -92,7 +101,7 @@ async def crear_preferencia_pro(request: PlanProRequest):
             "pending": f"{base_url}/pagos/pending",
         },
         "auto_return": "approved",
-        "external_reference": request.empresa_id,  # Identificador de la empresa que paga
+        "external_reference": empresa_id,  # Identificador de la empresa que paga
     }
 
     try:

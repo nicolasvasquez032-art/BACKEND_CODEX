@@ -49,3 +49,4 @@ class VacanteResponse(BaseModel):
     longitud: float | None = None
     creado_en: datetime
     total_postulaciones: int = 0
+    es_destacada: bool = False

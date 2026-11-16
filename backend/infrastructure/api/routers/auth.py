@@ -59,6 +59,43 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 _pending_oauth_sessions: dict[str, dict] = {}
 
 
+async def _store_oauth_session(session_id: str, session_data: dict) -> None:
+    """Guarda sesión OAuth temporal. Si Redis está configurado usa Redis con TTL, si no memoria."""
+    if settings.redis_url:
+        try:
+            import json
+            import redis.asyncio as aioredis
+            r = aioredis.from_url(settings.redis_url)
+            await r.setex(f"oauth_session:{session_id}", 600, json.dumps(session_data))
+            await r.close()
+            return
+        except Exception as e:
+            logger.warning(f"Error guardando sesión OAuth en Redis: {e}")
+    _pending_oauth_sessions[session_id] = session_data
+
+
+async def _retrieve_oauth_session(session_id: str) -> dict | None:
+    """Recupera y elimina una sesión OAuth para uso único con fallback a memoria."""
+    if settings.redis_url:
+        try:
+            import json
+            import redis.asyncio as aioredis
+            r = aioredis.from_url(settings.redis_url)
+            raw = await r.get(f"oauth_session:{session_id}")
+            if raw:
+                await r.delete(f"oauth_session:{session_id}")
+                await r.close()
+                return json.loads(raw)
+            await r.close()
+        except Exception as e:
+            logger.warning(f"Error consultando sesión OAuth en Redis: {e}")
+    now = time.time()
+    expired = [k for k, v in _pending_oauth_sessions.items() if now - v.get("created_at", 0) > 600]
+    for k in expired:
+        _pending_oauth_sessions.pop(k, None)
+    return _pending_oauth_sessions.pop(session_id, None)
+
+
 class BackgroundEmailServiceAdapter:
     """Adaptador que desacopla el envío SMTP hacia una BackgroundTask no bloqueante."""
 
@@ -427,8 +464,11 @@ async def social_login(
         except Exception:
             profile = None
 
-    if profile and (not getattr(profile, 'skills', None) or len(profile.skills) == 0) and not getattr(profile, 'location', None):
-        is_new_user = True
+    if profile:
+        skills = getattr(profile, 'skills', None) or []
+        location = getattr(profile, 'location', None)
+        if len(skills) == 0 or not location or not str(location).strip():
+            is_new_user = True
 
     profile_id_str = str(profile.id) if (profile and hasattr(profile, 'id') and profile.id) else None
     token_service = JwtTokenService()
@@ -671,8 +711,11 @@ async def oauth_callback(
         except Exception:
             profile = None
 
-    if profile and (not getattr(profile, 'skills', None) or len(profile.skills) == 0) and not getattr(profile, 'location', None):
-        is_new_user = True
+    if profile:
+        skills = getattr(profile, 'skills', None) or []
+        location = getattr(profile, 'location', None)
+        if len(skills) == 0 or not location or not str(location).strip():
+            is_new_user = True
 
     profile_id_str = str(profile.id) if (profile and hasattr(profile, 'id') and profile.id) else None
     token_service = JwtTokenService()
@@ -690,64 +733,126 @@ async def oauth_callback(
     else:
         target_redirect = state or "/"
 
+    target_origin = "*"
+    if settings.frontend_url and settings.frontend_url.strip():
+        target_origin = settings.frontend_url.rstrip("/")
+    if target_redirect.startswith(("http://", "https://")):
+        try:
+            from urllib.parse import urlparse
+            p = urlparse(target_redirect)
+            target_origin = f"{p.scheme}://{p.netloc}"
+        except Exception:
+            pass
+
     if session_id:
-        _pending_oauth_sessions[session_id] = {
-            "token": access_token,
-            "refreshToken": refresh_token,
-            "email": email,
-            "provider": provider,
-            "is_new_user": is_new_user,
-            "profile_id": profile_id_str,
-            "created_at": time.time(),
-        }
+        await _store_oauth_session(
+            session_id,
+            {
+                "token": access_token,
+                "refreshToken": refresh_token,
+                "email": email,
+                "provider": provider,
+                "is_new_user": is_new_user,
+                "profile_id": profile_id_str,
+                "created_at": time.time(),
+            },
+        )
+
+    deep_link = (
+        f"talentmatch://oauth-callback?token={access_token}&refresh={refresh_token}"
+        f"&provider={provider}&is_new_user={str(is_new_user).lower()}&profile_id={profile_id_str or ''}"
+    )
+    intent_uri = (
+        f"intent://oauth-callback?token={access_token}&refresh={refresh_token}"
+        f"&provider={provider}&is_new_user={str(is_new_user).lower()}&profile_id={profile_id_str or ''}"
+        f"#Intent;scheme=talentmatch;package=co.talentmatch.talentmatch;end"
+    )
 
     return HTMLResponse(
-        f"""<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Autenticación Exitosa — TalentMatch</title></head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #0f172a; color: white;">
-          <div style="text-align: center; max-width: 440px; margin: 20px; padding: 32px 24px; background: rgba(30, 41, 59, 0.8); border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
-            <div style="width: 56px; height: 56px; border-radius: 50%; background: #10b981; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            </div>
-            <h2 style="color: #38bdf8; margin: 0 0 8px; font-size: 21px; font-weight: 700;">¡Autenticación Exitosa!</h2>
-            <p style="color: #cbd5e1; font-size: 14px; margin: 0 0 6px;">Conectado vía {provider.capitalize()} como:</p>
-            <p style="color: #f8fafc; font-size: 15px; font-weight: 600; margin: 0 0 16px;">{email}</p>
-            <p style="color: #94a3b8; font-size: 13px; line-height: 1.4; margin: 0 0 20px;">Tu sesión se ha sincronizado. Ya puedes cerrar esta ventana y regresar a la aplicación <b>TalentMatch</b>.</p>
-            <a href="talentmatch://oauth-callback?token={access_token}&refresh={refresh_token}&provider={provider}&is_new_user={is_new_user}&profile_id={profile_id_str or ''}" style="display: inline-block; padding: 12px 28px; background: #2563eb; color: white; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 14px;">Volver a la App TalentMatch</a>
+        f"""<!DOCTYPE html><html><head><meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="refresh" content="0;url={intent_uri}">
+        <title>TalentMatch — Redirigiendo...</title>
+        <script>
+          try {{
+            window.location.replace('{intent_uri}');
+          }} catch(e) {{
+            try {{ window.location.href = '{intent_uri}'; }} catch(e2) {{
+              try {{ window.location.href = '{deep_link}'; }} catch(e3) {{}}
+            }}
+          }}
+        </script>
+        <style>
+          * {{ box-sizing: border-box; }}
+          body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex; align-items: center; justify-content: center;
+            min-height: 100vh; margin: 0; background: #0B111E; color: #F8FAFC;
+          }}
+          .card {{
+            text-align: center; max-width: 400px; margin: 20px; padding: 32px 24px;
+            background: rgba(17, 24, 39, 0.95); border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+          }}
+          .spinner {{
+            width: 48px; height: 48px;
+            border: 3.5px solid rgba(59, 130, 246, 0.2);
+            border-top-color: #3b82f6; border-radius: 50%;
+            animation: spin 0.8s linear infinite; margin: 0 auto 18px;
+          }}
+          @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+          h2 {{ color: #38bdf8; margin: 0 0 8px; font-size: 20px; font-weight: 700; }}
+          p {{ color: #94a3b8; font-size: 14px; margin: 0 0 20px; line-height: 1.4; }}
+          .btn {{
+            display: inline-block; padding: 12px 28px;
+            background: #2563eb; color: white; text-decoration: none;
+            border-radius: 12px; font-weight: 700; font-size: 14px;
+          }}
+        </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="spinner"></div>
+            <h2>Redirigiendo a TalentMatch...</h2>
+            <p>Conexión exitosa con {provider.capitalize()}. Volviendo a la aplicación para completar tu perfil.</p>
+            <a id="btn-app" class="btn" href="{intent_uri}">Volver a TalentMatch</a>
           </div>
           <script>
             const token = '{access_token}';
             const refresh = '{refresh_token}';
+            const deepLink = '{deep_link}';
+            const intentUri = '{intent_uri}';
             const target = '{target_redirect}';
             const separator = target.includes('?') ? '&' : '?';
             const destination = target + separator + 'token=' + encodeURIComponent(token) + '&refresh=' + encodeURIComponent(refresh) + '&provider={provider}&is_new_user={str(is_new_user).lower()}&profile_id={profile_id_str or ""}';
 
+            setTimeout(() => {{
+              const btn = document.getElementById('btn-app');
+              if (btn) btn.click();
+            }}, 50);
+
             try {{
               if (window.opener && window.opener !== window) {{
+                const payloadObj = {{
+                  type: 'TALENTMATCH_AUTH_SUCCESS',
+                  token: token,
+                  refreshToken: refresh,
+                  email: '{email}',
+                  provider: '{provider}',
+                  is_new_user: {str(is_new_user).lower()},
+                  profile_id: '{profile_id_str or ""}'
+                }};
+                const allowedOrigin = '{target_origin}';
                 try {{
-                  window.opener.postMessage({{
-                    type: 'TALENTMATCH_AUTH_SUCCESS',
-                    token: token,
-                    refreshToken: refresh,
-                    email: '{email}',
-                    provider: '{provider}',
-                    is_new_user: {str(is_new_user).lower()},
-                    profile_id: '{profile_id_str or ""}'
-                  }}, '*');
+                  window.opener.postMessage(payloadObj, allowedOrigin);
                 }} catch (e) {{}}
                 try {{
-                  window.opener.postMessage(JSON.stringify({{
-                    type: 'TALENTMATCH_AUTH_SUCCESS',
-                    token: token,
-                    refreshToken: refresh,
-                    email: '{email}',
-                    provider: '{provider}',
-                    is_new_user: {str(is_new_user).lower()},
-                    profile_id: '{profile_id_str or ""}'
-                  }}), '*');
+                  window.opener.postMessage(JSON.stringify(payloadObj), allowedOrigin);
                 }} catch (e) {{}}
                 setTimeout(() => {{
                   try {{ window.close(); }} catch (e) {{}}
-                }}, 400);
+                }}, 300);
               }} else if (!{str(bool(session_id)).lower()} && target && target !== '/' && !target.includes('talentmatch-api.duckdns.org')) {{
                 window.location.href = destination;
               }}
@@ -760,17 +865,10 @@ async def oauth_callback(
 @router.get("/oauth/session/{session_id}")
 async def get_oauth_session(session_id: str) -> dict:
     """Consulta el estado de autenticación de una sesión OAuth iniciada desde móvil o web."""
-    now = time.time()
-    expired = [k for k, v in _pending_oauth_sessions.items() if now - v.get("created_at", 0) > 600]
-    for k in expired:
-        _pending_oauth_sessions.pop(k, None)
-
-    data = _pending_oauth_sessions.get(session_id)
+    data = await _retrieve_oauth_session(session_id)
     if not data:
         return {"status": "pending"}
 
-    # Retorna y remueve para uso único
-    _pending_oauth_sessions.pop(session_id, None)
     return {
         "status": "completed",
         "token": data["token"],

@@ -104,6 +104,9 @@ class VacanteModel(Base):
     creado_en: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
+    es_destacada: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False, index=True
+    )
     embedding: Mapped[list[float] | None] = mapped_column(Vector(384))
 
     empresa: Mapped[UserModel] = relationship()

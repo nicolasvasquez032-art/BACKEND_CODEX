@@ -45,8 +45,10 @@ def test_verify_mp_signature_empty_secret_allows_pass():
 
 
 import uuid
+from datetime import datetime, UTC
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import HTTPException
+from domain.entities.user import User, UserRole
 from infrastructure.api.routers.pagos import (
     PlanProRequest,
     _get_mp_sdk,
@@ -65,25 +67,29 @@ def test_get_mp_sdk_raises_when_no_token():
 
 @pytest.mark.asyncio
 async def test_crear_preferencia_pro_success():
-    req = PlanProRequest(empresa_id=str(uuid.uuid4()), email="test@empresa.com")
+    empresa_id = uuid.uuid4()
+    req = PlanProRequest(empresa_id=str(empresa_id), email="test@empresa.com")
+    fake_user = User(id=empresa_id, email="test@empresa.com", password_hash="h", role=UserRole.COMPANY, created_at=datetime.now(UTC))
     mock_sdk = MagicMock()
     mock_sdk.preference().create.return_value = {
         "response": {"id": "pref_123", "init_point": "https://mp.com/pay"}
     }
     with patch("infrastructure.api.routers.pagos._get_mp_sdk", return_value=mock_sdk):
-        res = await crear_preferencia_pro(req)
+        res = await crear_preferencia_pro(req, current_user=fake_user)
         assert res["id"] == "pref_123"
         assert res["init_point"] == "https://mp.com/pay"
 
 
 @pytest.mark.asyncio
 async def test_crear_preferencia_pro_error():
-    req = PlanProRequest(empresa_id=str(uuid.uuid4()), email="test@empresa.com")
+    empresa_id = uuid.uuid4()
+    req = PlanProRequest(empresa_id=str(empresa_id), email="test@empresa.com")
+    fake_user = User(id=empresa_id, email="test@empresa.com", password_hash="h", role=UserRole.COMPANY, created_at=datetime.now(UTC))
     mock_sdk = MagicMock()
     mock_sdk.preference().create.side_effect = RuntimeError("SDK network error")
     with patch("infrastructure.api.routers.pagos._get_mp_sdk", return_value=mock_sdk):
         with pytest.raises(HTTPException) as exc_info:
-            await crear_preferencia_pro(req)
+            await crear_preferencia_pro(req, current_user=fake_user)
         assert exc_info.value.status_code == 500
 
 

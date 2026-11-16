@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.entities.vacante import Vacante, VacanteEstado
@@ -48,6 +48,7 @@ class SqlAlchemyVacanteRepository:
         self,
         ubicacion: str | None = None,
         categoria: str | None = None,
+        query: str | None = None,
         offset: int = 0,
         limit: int = 20,
     ) -> list[Vacante]:
@@ -56,9 +57,31 @@ class SqlAlchemyVacanteRepository:
             stmt = stmt.where(VacanteModel.ubicacion.ilike(f"%{ubicacion}%"))
         if categoria:
             stmt = stmt.where(VacanteModel.categoria.ilike(f"%{categoria}%"))
-        stmt = stmt.order_by(VacanteModel.creado_en.desc()).offset(offset).limit(limit)
+        if query and query.strip():
+            q = f"%{query.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    VacanteModel.titulo.ilike(q),
+                    VacanteModel.descripcion.ilike(q),
+                    VacanteModel.categoria.ilike(q),
+                    VacanteModel.ubicacion.ilike(q),
+                )
+            )
+        stmt = (
+            stmt.order_by(VacanteModel.es_destacada.desc(), VacanteModel.creado_en.desc())
+            .offset(offset)
+            .limit(limit)
+        )
         result = await self._session.execute(stmt)
         return [self._to_entity(m) for m in result.scalars().all()]
+
+    async def set_destacada(self, vacante_id: UUID, es_destacada: bool = True) -> Vacante:
+        model = await self._session.get(VacanteModel, vacante_id)
+        if model is None:
+            raise ValueError(f"Vacante {vacante_id} no encontrada en BD")
+        model.es_destacada = es_destacada
+        await self._session.flush()
+        return self._to_entity(model)
 
     async def update(
         self,
@@ -120,4 +143,5 @@ class SqlAlchemyVacanteRepository:
             salario_max=model.salario_max,
             latitud=model.latitud,
             longitud=model.longitud,
+            es_destacada=getattr(model, "es_destacada", False),
         )

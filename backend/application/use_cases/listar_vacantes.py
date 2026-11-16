@@ -8,12 +8,13 @@ from domain.entities.vacante import Vacante
 class ListarVacantesQuery:
     ubicacion: str | None = None
     categoria: str | None = None
+    query: str | None = None
     offset: int = 0
     limit: int = 20
 
 
 class ListarVacantesUseCase:
-    """Lista vacantes activas con filtros opcionales de ubicación y categoría (RF-02.2)."""
+    """Lista vacantes activas con filtros opcionales de ubicación, categoría y búsqueda híbrida (RF-02.2)."""
 
     def __init__(self, vacantes: VacanteRepositoryPort) -> None:
         self._vacantes = vacantes
@@ -23,6 +24,7 @@ class ListarVacantesUseCase:
         return await self._vacantes.list_activas(
             ubicacion=query.ubicacion,
             categoria=query.categoria,
+            query=query.query,
             offset=query.offset,
             limit=limit,
         )

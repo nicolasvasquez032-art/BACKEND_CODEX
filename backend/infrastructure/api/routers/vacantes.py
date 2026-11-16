@@ -64,6 +64,7 @@ def _to_response(vacante, lang: str | None = None, total_postulaciones: int = 0)
         longitud=vacante.longitud,
         creado_en=vacante.creado_en,
         total_postulaciones=total_postulaciones,
+        es_destacada=getattr(vacante, "es_destacada", False),
     )
 
 
@@ -72,26 +73,27 @@ async def listar_vacantes(
     request: Request,
     ubicacion: str | None = Query(default=None, max_length=180),
     categoria: str | None = Query(default=None, max_length=100),
+    q: str | None = Query(default=None, max_length=200),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=100),
     session: AsyncSession = Depends(get_read_session),
 ) -> list[VacanteResponse]:
-    """Lista vacantes activas con aceleración por caché Redis y soporte i18n."""
+    """Lista vacantes activas con aceleración por caché Redis, soporte i18n y búsqueda híbrida."""
     lang = request.headers.get("accept-language")
     cache = RedisCacheService.get_instance()
     
     # 1. Consultar en Caché distribuido Redis (O(1) in-memory)
     version = await cache.get_vacantes_version()
-    cache_key = f"cache:vacantes:v{version}:{ubicacion}:{categoria}:{offset}:{limit}:{lang}"
+    cache_key = f"cache:vacantes:v{version}:{ubicacion}:{categoria}:{q}:{offset}:{limit}:{lang}"
     cached_data = await cache.get_json(cache_key)
     if cached_data is not None:
         return [VacanteResponse(**item) for item in cached_data]
 
-    # 2. Cache Miss: Consultar en PostgreSQL
+    # 2. Cache Miss: Consultar en PostgreSQL (con filtro de texto/híbrido)
     repo = SqlAlchemyVacanteRepository(session)
     use_case = ListarVacantesUseCase(repo)
     vacantes = await use_case.execute(
-        ListarVacantesQuery(ubicacion=ubicacion, categoria=categoria, offset=offset, limit=limit)
+        ListarVacantesQuery(ubicacion=ubicacion, categoria=categoria, query=q, offset=offset, limit=limit)
     )
     vacante_ids = [v.id for v in vacantes]
     counts_map = {}
@@ -108,6 +110,25 @@ async def listar_vacantes(
     # 3. Guardar en Redis de forma asíncrona con TTL de 60 segundos
     await cache.set_json(cache_key, [item.model_dump(mode="json") for item in result], ttl=60)
     return result
+
+
+@router.post("/{vacante_id}/destacar", response_model=VacanteResponse)
+async def destacar_vacante(
+    vacante_id: UUID,
+    current_user: User = Depends(require_role(UserRole.COMPANY)),
+    session: AsyncSession = Depends(get_session),
+) -> VacanteResponse:
+    """Marca una vacante como destacada (con insignia dorada y prioridad visual)."""
+    repo = SqlAlchemyVacanteRepository(session)
+    vacante = await repo.find_by_id(vacante_id)
+    if not vacante:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacante no encontrada")
+    if vacante.empresa_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No eres dueño de esta vacante")
+    
+    updated = await repo.set_destacada(vacante_id, True)
+    await session.commit()
+    return _to_response(updated)
 
 
 @router.get("/{vacante_id}", response_model=VacanteResponse)

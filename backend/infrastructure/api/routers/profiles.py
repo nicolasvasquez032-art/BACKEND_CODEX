@@ -313,6 +313,13 @@ async def get_candidate_cv_presigned_url(
     if profile is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Perfil no encontrado")
 
+    # 🛡️ Control de Acceso (BOLA / OWASP API1:2023)
+    if current_user.role == UserRole.CANDIDATE and profile.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado: no puedes acceder al CV de otro candidato",
+        )
+
     if not profile.cv_file_url:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

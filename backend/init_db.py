@@ -12,7 +12,11 @@ async def init_models():
     async with engine.begin() as conn:
         # Create extension vector if not exists
         await conn.execute(from_sqlalchemy_text("CREATE EXTENSION IF NOT EXISTS vector;"))
-        await conn.run_sync(Base.metadata.drop_all)
+        env = os.getenv("ENVIRONMENT", "").lower()
+        if env == "production":
+            print("⚠️ Entorno de producción detectado: omitiendo drop_all para proteger los datos existentes.")
+        else:
+            await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     print("Database initialized successfully.")
 

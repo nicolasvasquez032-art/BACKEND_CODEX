@@ -193,10 +193,22 @@ async def listar_postulaciones_candidato(
     except PermissionDeniedError:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
 
+    # Optimización batch O(1) queries en lugar de N+1
+    vacante_ids = {p.vacante_id for p in postulaciones}
+    vacantes_dict = {}
+    empresas_dict = {}
+    if vacante_ids:
+        vac_res = await session.execute(select(VacanteModel).where(VacanteModel.id.in_(vacante_ids)))
+        vacantes_dict = {v.id: v for v in vac_res.scalars().all()}
+        empresa_ids = {v.empresa_id for v in vacantes_dict.values() if v.empresa_id}
+        if empresa_ids:
+            emp_res = await session.execute(select(UserModel).where(UserModel.id.in_(empresa_ids)))
+            empresas_dict = {u.id: u for u in emp_res.scalars().all()}
+
     responses: list[PostulacionResponse] = []
     for p in postulaciones:
         resp = _to_response(p)
-        vacante_model = await session.get(VacanteModel, p.vacante_id)
+        vacante_model = vacantes_dict.get(p.vacante_id)
         if vacante_model:
             resp.vacante_titulo = vacante_model.titulo
             resp.vacante_ubicacion = vacante_model.ubicacion
@@ -205,7 +217,7 @@ async def listar_postulaciones_candidato(
             resp.vacante_salario_max = vacante_model.salario_max
             resp.vacante_descripcion = vacante_model.descripcion
             resp.vacante_requisitos = vacante_model.requisitos
-            empresa_user = await session.get(UserModel, vacante_model.empresa_id)
+            empresa_user = empresas_dict.get(vacante_model.empresa_id)
             if empresa_user:
                 resp.empresa_nombre = empresa_user.email.split("@")[0].capitalize()
         responses.append(resp)
@@ -239,10 +251,26 @@ async def listar_postulaciones_vacante(
     vacante_model = await session.get(VacanteModel, vacante_id)
     needs_commit = False
 
+    # Optimización batch O(1) queries para candidatos y usuarios
+    cand_ids = {p.candidato_id for p in postulaciones}
+    profiles_dict = {}
+    users_dict = {}
+    if cand_ids:
+        prof_res = await session.execute(
+            select(CandidateProfileModel).where(CandidateProfileModel.id.in_(cand_ids))
+        )
+        profiles_dict = {cp.id: cp for cp in prof_res.scalars().all()}
+        user_ids = {cp.user_id for cp in profiles_dict.values() if cp.user_id}
+        if user_ids:
+            usr_res = await session.execute(
+                select(UserModel).where(UserModel.id.in_(user_ids))
+            )
+            users_dict = {u.id: u for u in usr_res.scalars().all()}
+
     responses: list[PostulacionResponse] = []
     for p in postulaciones:
         resp = _to_response(p)
-        cand_prof = await session.get(CandidateProfileModel, p.candidato_id)
+        cand_prof = profiles_dict.get(p.candidato_id)
         if cand_prof:
             resp.candidato_nombre = cand_prof.full_name
             resp.candidato_job_title = cand_prof.job_title
@@ -251,7 +279,7 @@ async def listar_postulaciones_vacante(
             resp.candidato_location = cand_prof.location
             resp.candidato_phone = cand_prof.phone
             resp.candidato_user_id = cand_prof.user_id
-            cand_user = await session.get(UserModel, cand_prof.user_id)
+            cand_user = users_dict.get(cand_prof.user_id) if cand_prof.user_id else None
             if cand_user:
                 resp.candidato_email = cand_user.email
 
@@ -473,7 +501,7 @@ async def iniciar_entrevista_postulacion(
             notif = NotificacionModel(
                 usuario_id=cand_user_id,
                 tipo="entrevista",
-                mensaje=f"📹 La empresa te ha convocado a una entrevista para: {vacante.titulo}",
+                mensaje=f"La empresa te ha convocado a una entrevista para: {vacante.titulo}",
                 leido=False,
             )
             session.add(notif)
@@ -506,7 +534,7 @@ async def iniciar_entrevista_postulacion(
             for dev_token in candidate_tokens:
                 await fcm.send_notification(
                     token=dev_token,
-                    title="📹 ¡Nueva Entrevista de Trabajo!",
+                    title="Nueva Entrevista de Trabajo",
                     body=f"Has sido seleccionado para entrevista en: {vacante.titulo}",
                     data={
                         "tipo": "videollamada",

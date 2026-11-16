@@ -33,8 +33,18 @@ async def lifespan(app: FastAPI):
     liberando pools de conexión a la base de datos ante señales SIGTERM/SIGINT.
     """
     logger.info("TalentMatch API inicializada correctamente.")
+    try:
+        from infrastructure.api.websockets_manager import manager
+        await manager.start_redis_listener()
+    except Exception as e:
+        logger.warning(f"No se pudo iniciar listener distribuido WS: {e}")
     yield
     logger.info("Cerrando pools de conexiones y liberando recursos (Graceful Shutdown)...")
+    try:
+        from infrastructure.api.websockets_manager import manager
+        await manager.stop_redis_listener()
+    except Exception:
+        pass
     from infrastructure.adapters.persistence.database import reader_engine, writer_engine
     await writer_engine.dispose()
     if reader_engine is not writer_engine:

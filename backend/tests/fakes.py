@@ -258,6 +258,7 @@ class FakeVacanteRepository:
         self,
         ubicacion: str | None = None,
         categoria: str | None = None,
+        query: str | None = None,
         offset: int = 0,
         limit: int = 20,
     ):
@@ -267,7 +268,14 @@ class FakeVacanteRepository:
             if v.estado == VacanteEstado.ACTIVA
             and (ubicacion is None or ubicacion.lower() in v.ubicacion.lower())
             and (categoria is None or (v.categoria and categoria.lower() in v.categoria.lower()))
+            and (
+                query is None
+                or query.lower() in v.titulo.lower()
+                or query.lower() in v.descripcion.lower()
+                or (v.categoria and query.lower() in v.categoria.lower())
+            )
         ]
+        results.sort(key=lambda v: (getattr(v, "es_destacada", False), v.creado_en), reverse=True)
         return results[offset: offset + limit]
 
     async def update(self, vacante_id: UUID, titulo: str, descripcion: str,
