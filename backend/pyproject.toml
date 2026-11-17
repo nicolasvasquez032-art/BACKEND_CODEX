@@ -41,6 +41,9 @@ dev = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+filterwarnings = [
+    "ignore::Warning",
+]
 
 [tool.ruff]
 line-length = 100
