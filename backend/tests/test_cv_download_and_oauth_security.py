@@ -68,3 +68,15 @@ async def test_oauth_callback_xss_protection(app):
         # Verificar que el tag <script> NO esté presente sin escapar
         assert "<script>alert(1)</script>" not in resp.text
         assert "&lt;script&gt;" in resp.text or "<script>" not in resp.text
+
+
+@pytest.mark.asyncio
+async def test_oauth_linkedin_demo_flow(app):
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/auth/oauth/linkedin/authorize?session_id=test_session_123")
+        assert resp.status_code == 200
+        assert "LinkedIn" in resp.text
+        assert "TalentMatch" in resp.text
+        assert "Permitir" in resp.text
+
