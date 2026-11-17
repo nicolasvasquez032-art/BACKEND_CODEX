@@ -45,5 +45,16 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@abstractmethod",
+    "@abc.abstractmethod",
+    "\\.\\.\\.",
+]
+
 [tool.setuptools.packages.find]
 include = ["domain*", "application*", "infrastructure*"]

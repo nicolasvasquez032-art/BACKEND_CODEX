@@ -74,9 +74,8 @@ async def test_oauth_callback_xss_protection(app):
 async def test_oauth_linkedin_demo_flow(app):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/auth/oauth/linkedin/authorize?session_id=test_session_123")
-        assert resp.status_code == 200
-        assert "LinkedIn" in resp.text
-        assert "TalentMatch" in resp.text
-        assert "Permitir" in resp.text
+        resp = await client.get("/auth/oauth/linkedin/authorize?session_id=test_session_123", follow_redirects=False)
+        assert resp.status_code == 307
+        assert "auth/oauth/linkedin/callback" in resp.headers["location"]
+        assert "code=mock_linkedin" in resp.headers["location"]
 
