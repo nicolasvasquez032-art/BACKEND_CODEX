@@ -189,20 +189,20 @@ def create_app() -> FastAPI:
                 detail="Nombre de archivo inválido",
             )
 
+        backend_root = Path(__file__).resolve().parent.parent.parent
         allowed_dirs = [
+            (backend_root / "uploads" / "cvs").resolve(),
             Path("uploads/cvs").resolve(),
             Path("backend/uploads/cvs").resolve(),
-            Path("/home/ubuntu/BACKEND_CODEX/backend/uploads/cvs").resolve(),
-            Path("/home/nicolas-vasquez/Escritorio/BACKEND_CODEX/backend/uploads/cvs").resolve(),
         ]
         target_path: Path | None = None
         for base_dir in allowed_dirs:
-            candidate = (base_dir / clean_name).resolve()
             try:
+                candidate = (base_dir / clean_name).resolve()
                 if candidate.is_relative_to(base_dir) and candidate.is_file():
                     target_path = candidate
                     break
-            except (ValueError, RuntimeError):
+            except (ValueError, RuntimeError, OSError):
                 continue
 
         if not target_path or not target_path.exists():
